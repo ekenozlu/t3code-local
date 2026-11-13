@@ -32,7 +32,7 @@ cat >"$PLIST" <<EOF
   <array><string>/bin/bash</string><string>$STATE_DIR/updater.sh</string></array>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>PATH</key><string>$HOME/.local/share/vite-plus/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>PATH</key><string>$HOME/.local/share/vite-plus/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     <key>T3_UPDATE_REPO_URL</key><string>$repo_url</string>
   </dict>
   <key>StartInterval</key><integer>900</integer>
