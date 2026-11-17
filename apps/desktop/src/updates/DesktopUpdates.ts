@@ -463,7 +463,10 @@ export const make = Effect.gen(function* () {
   const hasUpdateFeedConfig = Ref.get(appUpdateYmlConfigRef).pipe(
     Effect.map(
       (appUpdateYmlConfig) =>
-        Option.isSome(appUpdateYmlConfig) || mockUpdates || policy.feedUrl !== undefined,
+        Option.isSome(appUpdateYmlConfig) ||
+        mockUpdates ||
+        policy.feedUrl !== undefined ||
+        electronUpdater.ownsFeed,
     ),
   );
 

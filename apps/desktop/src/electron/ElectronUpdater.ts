@@ -35,9 +35,12 @@ export class ElectronUpdaterCheckForUpdatesError extends Schema.TaggedError<Elec
   {
     channel: Schema.NullOr(Schema.String),
     cause: Schema.Defect(),
+    /** Shown in place of the generic message. */
+    reason: Schema.optional(Schema.String),
   },
 ) {
   override get message(): string {
+    if (this.reason !== undefined) return this.reason;
     return `Electron updater failed to check for updates on channel ${this.channel ?? "default"}.`;
   }
 }
@@ -47,9 +50,12 @@ export class ElectronUpdaterDownloadUpdateError extends Schema.TaggedError<Elect
   {
     channel: Schema.NullOr(Schema.String),
     cause: Schema.Defect(),
+    /** Shown in place of the generic message. */
+    reason: Schema.optional(Schema.String),
   },
 ) {
   override get message(): string {
+    if (this.reason !== undefined) return this.reason;
     return `Electron updater failed to download the update on channel ${this.channel ?? "default"}.`;
   }
 }
@@ -78,6 +84,8 @@ export type ElectronUpdaterError = typeof ElectronUpdaterError.Type;
 export class ElectronUpdater extends Context.Service<
   ElectronUpdater,
   {
+    /** Brings its own update source, so no app-update.yml or feed URL is needed. */
+    readonly ownsFeed: boolean;
     readonly setFeedURL: (options: ElectronUpdaterFeedUrl) => Effect.Effect<void>;
     readonly setAutoDownload: (value: boolean) => Effect.Effect<void>;
     readonly setAutoInstallOnAppQuit: (value: boolean) => Effect.Effect<void>;
@@ -102,6 +110,7 @@ export class ElectronUpdater extends Context.Service<
 
 /** @public */
 export const make = ElectronUpdater.of({
+  ownsFeed: false,
   setFeedURL: Effect.fn("ElectronUpdater.setFeedURL")(function (options) {
     return Effect.suspend(() => {
       autoUpdater.setFeedURL(options);

@@ -76,6 +76,7 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
   };
 
   const layerUpdater = Layer.succeed(ElectronUpdater.ElectronUpdater, {
+    ownsFeed: false,
     setFeedURL: (options) =>
       Effect.sync(() => {
         feedUrls.push(options);

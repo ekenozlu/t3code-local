@@ -1,5 +1,6 @@
 #!/bin/bash
-# Installs (or with --uninstall, removes) a launchd agent that runs updater.sh every 15 minutes.
+# Installs (or with --uninstall, removes) a launchd agent that runs updater.sh every 15 minutes
+# and whenever the installed app writes a request.
 set -euo pipefail
 
 LABEL="local.t3code.self-update"
@@ -36,6 +37,8 @@ cat >"$PLIST" <<EOF
     <key>T3_UPDATE_REPO_URL</key><string>$repo_url</string>
   </dict>
   <key>StartInterval</key><integer>900</integer>
+  <key>WatchPaths</key>
+  <array><string>$STATE_DIR/request</string></array>
   <key>RunAtLoad</key><true/>
   <key>LowPriorityIO</key><true/>
   <key>ProcessType</key><string>Background</string>
