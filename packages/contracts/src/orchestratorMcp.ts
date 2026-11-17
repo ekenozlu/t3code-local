@@ -696,6 +696,8 @@ export const OrchestratorMcpCapabilitiesResult = Schema.Struct({
   ),
   /** Set only for the Command Center's main agent: how it works. */
   commandCenter: Schema.optional(Schema.String),
+  /** Set only for the Operation Center's agent: how it works. */
+  operationCenter: Schema.optional(Schema.String),
   features: Schema.Struct({
     appOwnedSubagents: Schema.Boolean,
     asyncPolling: Schema.Boolean,

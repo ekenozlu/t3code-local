@@ -119,7 +119,8 @@ export function applyAgentProfile(
       }),
     );
   }
-  const { agent: _agent, ...rest } = input;
+  // The canonical name, so the Operation Center groups a job under the agent it ran as.
+  const rest = { ...input, agent: profile.name };
   const target = input.target;
   // A caller naming any of the provider, driver or model picks its own; the agent's would not fit it.
   const keepsProfileModel =

@@ -1119,14 +1119,18 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         );
   const allThreads = useQuietThreadShells();
   const commandCenterThreadIds = usePrimarySettings((settings) => settings.commandCenter.threadIds);
-  // The Command Center lists its own threads at the bottom of the sidebar.
+  const operationCenterThreadIds = usePrimarySettings(
+    (settings) => settings.operationCenter.threadIds,
+  );
+  // Each center lists its own threads at the bottom of the sidebar.
   const threads =
-    commandCenterThreadIds.length === 0
+    commandCenterThreadIds.length === 0 && operationCenterThreadIds.length === 0
       ? allThreads
       : allThreads.filter(
           (thread) =>
             thread.environmentId !== primaryEnvironmentId ||
-            !commandCenterThreadIds.includes(thread.id),
+            (!commandCenterThreadIds.includes(thread.id) &&
+              !operationCenterThreadIds.includes(thread.id)),
         );
   const promotingDraftThreadKeys = usePromotingDraftThreadKeys();
   const listedThreads =

@@ -41,9 +41,13 @@ export function AgentsSettings() {
   const navigate = useNavigate();
   const profiles = usePrimarySettings((settings) => settings.agentProfiles);
   const guidance = usePrimarySettings((settings) => settings.commandCenter.instructions);
+  const operationsGuidance = usePrimarySettings(
+    (settings) => settings.operationCenter.instructions,
+  );
   const updateSettings = useUpdatePrimarySettings();
   const [editing, setEditing] = useState<AgentProfile | null>(null);
   const [guidanceDraft, setGuidanceDraft] = useState<string | null>(null);
+  const [operationsDraft, setOperationsDraft] = useState<string | null>(null);
 
   const saveProfile = (profile: AgentProfile) => {
     const exists = profiles.some((candidate) => candidate.id === profile.id);
@@ -80,6 +84,47 @@ export function AgentsSettings() {
               if (guidanceDraft === null || guidanceDraft === guidance) return;
               updateSettings({ commandCenter: { instructions: guidanceDraft } });
               setGuidanceDraft(null);
+            }}
+          />
+        </SettingsRow>
+      </SettingsSection>
+
+      <SettingsSection
+        id="operation-center"
+        title="Operation Center"
+        headerAction={
+          <div className="flex gap-1">
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={() => void navigate({ to: "/operations" })}
+            >
+              Dashboard
+            </Button>
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={() => void openCommandCenter({ navigate }, { center: "operations" })}
+            >
+              Open
+            </Button>
+          </div>
+        }
+      >
+        <SettingsRow
+          title="Review guidance"
+          description="Reviews the Command Center's jobs and proposes agent and guidance changes, applied only after you approve. Anything here is added to its brief, such as what to optimise for."
+        >
+          <Textarea
+            className="mt-2"
+            size="sm"
+            value={operationsDraft ?? operationsGuidance}
+            placeholder="Prefer cheaper models unless a job failed twice. Review every Monday at 9am."
+            onChange={(event) => setOperationsDraft(event.target.value)}
+            onBlur={() => {
+              if (operationsDraft === null || operationsDraft === operationsGuidance) return;
+              updateSettings({ operationCenter: { instructions: operationsDraft } });
+              setOperationsDraft(null);
             }}
           />
         </SettingsRow>

@@ -347,6 +347,7 @@ import {
   ServerUpsertKeybindingInput,
   ServerUpsertKeybindingResult,
 } from "./server.ts";
+import { OperationsMetrics, OperationsMetricsError, OperationsMetricsInput } from "./operations.ts";
 import {
   HostResourcesSnapshot,
   ResourceTelemetryHistory,
@@ -550,6 +551,7 @@ export const WS_METHODS = {
   serverListTextGeneratorModels: "server.listTextGeneratorModels",
   serverPrepareTriage: "server.prepareTriage",
   serverEnsureCommandCenterThread: "server.ensureCommandCenterThread",
+  serverGetOperationsMetrics: "server.getOperationsMetrics",
   serverSignalProcess: "server.signalProcess",
   serverReportClientActivity: "server.reportClientActivity",
   serverGetUsageSummary: "server.getUsageSummary",
@@ -1022,6 +1024,12 @@ const WsServerEnsureCommandCenterThreadRpc = Rpc.make(WS_METHODS.serverEnsureCom
   payload: ServerEnsureCommandCenterThreadInput,
   success: ServerEnsureCommandCenterThreadResult,
   error: Schema.Union([ServerEnsureCommandCenterThreadError, EnvironmentAuthorizationError]),
+});
+
+const WsServerGetOperationsMetricsRpc = Rpc.make(WS_METHODS.serverGetOperationsMetrics, {
+  payload: OperationsMetricsInput,
+  success: OperationsMetrics,
+  error: Schema.Union([OperationsMetricsError, EnvironmentAuthorizationError]),
 });
 
 const WsServerGetUsageSummaryRpc = Rpc.make(WS_METHODS.serverGetUsageSummary, {
@@ -2171,6 +2179,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerListTextGeneratorModelsRpc,
   WsServerPrepareTriageRpc,
   WsServerEnsureCommandCenterThreadRpc,
+  WsServerGetOperationsMetricsRpc,
   WsServerGetUsageSummaryRpc,
   WsServerRefreshUsageRatesRpc,
   WsServerSignalProcessRpc,

@@ -1429,6 +1429,10 @@ export const ServerSettings = Schema.Struct({
   commandCenter: CommandCenterSettings.pipe(
     Schema.withDecodingDefault(Effect.succeed({ threadIds: [], instructions: "" })),
   ),
+  /** The Operation Center reviews the Command Center's jobs; same shape. */
+  operationCenter: CommandCenterSettings.pipe(
+    Schema.withDecodingDefault(Effect.succeed({ threadIds: [], instructions: "" })),
+  ),
   projectScriptOverrides: Schema.Record(ProjectId, Schema.NullOr(Schema.Array(ProjectScript))).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
   ),
@@ -1877,6 +1881,12 @@ export const ServerSettingsPatch = Schema.Struct({
   // Replaces the whole list.
   agentProfiles: Schema.optionalKey(Schema.Array(AgentProfile)),
   commandCenter: Schema.optionalKey(
+    Schema.Struct({
+      threadIds: Schema.optionalKey(Schema.Array(ThreadId)),
+      instructions: Schema.optionalKey(Schema.String),
+    }),
+  ),
+  operationCenter: Schema.optionalKey(
     Schema.Struct({
       threadIds: Schema.optionalKey(Schema.Array(ThreadId)),
       instructions: Schema.optionalKey(Schema.String),

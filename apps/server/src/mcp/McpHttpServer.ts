@@ -234,10 +234,15 @@ const makeMcpAuthMiddleware = Effect.gen(function* () {
   const clients = yield* Effect.serviceOption(McpClientAuthenticator);
   const serverSettings = yield* ServerSettings.ServerSettingsService;
   const runtimeModeCeiling = serverSettings.managedPolicy?.limits?.maxRuntimeMode;
-  const linksEnabled = serverSettings.getSettings.pipe(
-    Effect.map((settings) => settings.linkedEnvironmentsEnabled),
-    Effect.orElseSucceed(() => false),
-  );
+  const requestSettings = (threadId: ThreadId | undefined) =>
+    serverSettings.getSettings.pipe(
+      Effect.map((settings) => ({
+        linkedEnvironments: settings.linkedEnvironmentsEnabled,
+        operationCenter:
+          threadId !== undefined && settings.operationCenter.threadIds.includes(threadId),
+      })),
+      Effect.orElseSucceed(() => ({ linkedEnvironments: false, operationCenter: false })),
+    );
   const authenticateRequest = Effect.fn("McpHttpServer.authenticateRequest")(function* (
     request: HttpServerRequest.HttpServerRequest,
   ) {
@@ -268,9 +273,11 @@ const makeMcpAuthMiddleware = Effect.gen(function* () {
     const asked = withModeLimit(withSenderThread(invocation, request), request);
     if (asked === undefined) return invalidModeLimit;
     const limited = McpInvocationContext.withRuntimeModeCeiling(asked, runtimeModeCeiling);
-    const linkedEnvironments = yield* linksEnabled;
+    const { linkedEnvironments, operationCenter } = yield* requestSettings(
+      limited.thread?.threadId,
+    );
     if (limited.client?.linked === true && !linkedEnvironments) return linkedEnvironmentsOff;
-    return { ...limited, linkedEnvironments };
+    return { ...limited, linkedEnvironments, operationCenter };
   });
   // Untraced: a span here would wrap the tool call; the HTTP server span already covers it.
   return Effect.fnUntraced(function* (httpEffect) {

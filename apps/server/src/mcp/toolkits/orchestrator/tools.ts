@@ -1,4 +1,8 @@
 import {
+  OperationsApplyInput,
+  OperationsApplyResult,
+  OperationsMetrics,
+  OperationsMetricsInput,
   OrchestratorMcpCapabilitiesInput,
   OrchestratorMcpCapabilitiesResult,
   OrchestrationV2StopWorkflowInput,
@@ -202,6 +206,40 @@ const DeleteScheduledTaskTool = Tool.make("delete_scheduled_task", {
   .annotate(Tool.Title, "Delete a scheduled task")
   .annotate(Tool.Destructive, true);
 
+const OperationsMetricsTool = Tool.make("t3_operations_metrics", {
+  description:
+    "The Command Center's jobs in the period: agent, project, model, status, duration, tokens, turns, and interventions (messages the user sent a job's thread after its task). `threadId` is the job's thread for t3_thread_read.",
+  parameters: Schema.Struct({
+    sinceDays: Schema.optional(
+      OperationsMetricsInput.fields.sinceDays.annotate({
+        description: "Jobs started in the last this many days, 1 to 90. Default 7.",
+      }),
+    ),
+  }),
+  success: OperationsMetrics,
+  failure: OrchestratorMcpFailure,
+  failureMode: "return",
+  dependencies,
+})
+  .annotate(Tool.Title, "Read operations metrics")
+  .annotate(Tool.Readonly, true)
+  .annotate(Tool.Destructive, false)
+  .annotate(Tool.Idempotent, true)
+  .annotate(McpSchema.EnabledWhen, McpInvocationContext.shownInOperationCenter);
+
+const OperationsApplyTool = Tool.make("t3_operations_apply", {
+  description:
+    "Apply one change the user approved: a saved agent's description, instructions or model, or the Command Center's guidance. Text fields replace the whole value. Never call it without the user's approval.",
+  parameters: OperationsApplyInput,
+  success: OperationsApplyResult,
+  failure: OrchestratorMcpFailure,
+  failureMode: "return",
+  dependencies,
+})
+  .annotate(Tool.Title, "Apply an approved change")
+  .annotate(Tool.Destructive, true)
+  .annotate(McpSchema.EnabledWhen, McpInvocationContext.shownInOperationCenter);
+
 const RequestSecretTool = Tool.make("request_secret", {
   description:
     'Ask for one secret per single-line card; never combine values. Open it, don\'t offer it. Returns one-use `secretRef`, or `delivery: "file"` a file read only in its command, e.g. `adb pair <ip:port> "$(cat <file>)"`. Asked how: call now. Sign-in link: `url`. Pasted secret for child/script: `value`. Never from an old thread.',
@@ -366,6 +404,8 @@ export const OrchestratorToolkit = Toolkit.make(
   ScheduleTaskTool,
   ListScheduledTasksTool,
   DeleteScheduledTaskTool,
+  OperationsMetricsTool,
+  OperationsApplyTool,
   RequestSecretTool,
   CreateThreadsTool,
   ThreadListTool,

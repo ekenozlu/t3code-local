@@ -116,7 +116,7 @@ import * as ProjectService from "../project/ProjectService.ts";
 import * as ProviderRegistry from "../provider/ProviderRegistry.ts";
 import * as ScheduledTaskService from "../scheduledTasks/ScheduledTaskService.ts";
 import * as ServerSettings from "../serverSettings.ts";
-import { commandCenterBrief } from "../commandCenter/brief.ts";
+import { commandCenterBrief, operationCenterBrief } from "../commandCenter/brief.ts";
 import {
   clientModeCeiling,
   type McpInvocationScope,
@@ -2540,6 +2540,9 @@ const make = Effect.gen(function* () {
             }),
         ...(parent !== undefined && settings.commandCenter.threadIds.includes(parent.thread.id)
           ? { commandCenter: commandCenterBrief(settings.commandCenter.instructions) }
+          : {}),
+        ...(parent !== undefined && settings.operationCenter.threadIds.includes(parent.thread.id)
+          ? { operationCenter: operationCenterBrief(settings.operationCenter.instructions) }
           : {}),
         features: {
           appOwnedSubagents: true,

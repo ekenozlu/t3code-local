@@ -98,6 +98,17 @@ describe("CommandCenterService", () => {
             second.threadId,
             third.threadId,
           ]);
+
+          // The Operation Center keeps its own threads and brief.
+          const operations = yield* service.ensureThread({ modelSelection, center: "operations" });
+          assert.notStrictEqual(operations.threadId, third.threadId);
+          assert.include(
+            yield* fileSystem.readFileString(`${folder}/AGENTS.md`),
+            "Operation Center agent",
+          );
+          const saved = yield* settings.getSettings;
+          assert.deepStrictEqual(saved.operationCenter.threadIds, [operations.threadId]);
+          assert.lengthOf(saved.commandCenter.threadIds, 2);
         }).pipe(Effect.provide(layer));
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );

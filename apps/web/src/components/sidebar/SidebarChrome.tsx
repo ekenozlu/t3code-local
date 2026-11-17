@@ -297,7 +297,8 @@ export const SidebarChromeFooter = memo(function SidebarChromeFooter() {
     <SidebarFooter>
       <SidebarProviderUpdatePill />
       <SidebarUpdateArchitectureWarning />
-      <SidebarCommandCenter />
+      <SidebarCommandCenter center="command" />
+      <SidebarCommandCenter center="operations" />
       <SidebarUtilityMenu />
     </SidebarFooter>
   );

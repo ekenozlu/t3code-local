@@ -17,17 +17,28 @@ import {
 } from "~/state/server";
 import { buildThreadRouteParams } from "~/threadRoutes";
 
-const fail = (description: string) =>
-  toastManager.add({ type: "error", title: "Could not open the Command Center", description });
+export type Center = "command" | "operations";
+
+export const CENTER_LABELS: Record<Center, string> = {
+  command: "Command Center",
+  operations: "Operation Center",
+};
 
 /**
- * Opens the newest main agent thread on this server, or starts one with the
- * default model. Shared by the sidebar, the palette and its shortcut.
+ * Opens a center's newest unsettled thread on this server, or starts one with
+ * the default model. Shared by the sidebar, the palette and its shortcut.
  */
 export async function openCommandCenter(
   router: Pick<AnyRouter, "navigate">,
-  options: { readonly startNew?: boolean } = {},
+  options: { readonly startNew?: boolean; readonly center?: Center } = {},
 ) {
+  const center = options.center ?? "command";
+  const fail = (description: string) =>
+    toastManager.add({
+      type: "error",
+      title: `Could not open the ${CENTER_LABELS[center]}`,
+      description,
+    });
   const environmentId = readPrimaryEnvironmentId();
   if (environmentId === null) return fail("Connect to a T3 Code server first.");
   const modelSelection = resolveDefaultProviderModelSelection(
@@ -38,7 +49,7 @@ export async function openCommandCenter(
   const result = await runAtomCommand(
     appAtomRegistry,
     serverEnvironment.ensureCommandCenterThread,
-    { environmentId, input: { modelSelection, startNew: options.startNew === true } },
+    { environmentId, input: { modelSelection, startNew: options.startNew === true, center } },
     { reportFailure: false },
   );
   if (result._tag === "Failure") {

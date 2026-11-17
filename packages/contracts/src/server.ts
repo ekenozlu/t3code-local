@@ -418,6 +418,8 @@ export const ServerEnsureCommandCenterThreadInput = Schema.Struct({
   modelSelection: ModelSelection,
   /** Start another main agent thread even when one is live. */
   startNew: Schema.optional(Schema.Boolean),
+  /** Which center's main agent; the Command Center when omitted. */
+  center: Schema.optional(Schema.Literals(["command", "operations"])),
 });
 export type ServerEnsureCommandCenterThreadInput = typeof ServerEnsureCommandCenterThreadInput.Type;
 

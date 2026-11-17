@@ -30,3 +30,14 @@ job and its status. When a job finishes, the main agent wakes up and reports bac
   end of the list, where you can un-settle them; clicking the Command Center skips them. Archive one
   to take it off the list; unarchive it to bring it back.
 - Each server has its own Command Center. It uses the agents saved on that server.
+
+## Operation Center
+
+The Operation Center sits below the Command Center in the sidebar. It reviews the jobs the Command Center handed out and suggests how to improve them.
+
+- **Dashboard.** Open it with the chart button beside the Operation Center or at Settings → Agents. It shows jobs, failures, median time, tokens, and steers (messages you sent a job's thread after its task) for the last 7, 30, or 90 days, broken down by agent. Jobs that failed, that you steered, or that took more than twice their agent's median are listed under **Needs attention**.
+- **Reviews.** Ask the Operation Center to review recent work. It reads the same numbers, opens the slow or failed jobs, and may ask the agent that ran one what went wrong. It then reports numbered recommendations: changing a saved agent's instructions, description, or model, or the Command Center's guidance.
+- **Approval.** Nothing changes until you approve. Reply with the numbers you want and it applies those changes.
+- **On a schedule.** Ask it to "review every Monday at 9am" and it schedules the review in its own thread.
+
+Add anything the Operation Center should weigh, such as cost limits, under Settings → Agents → Operation Center.

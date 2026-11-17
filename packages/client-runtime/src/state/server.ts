@@ -1540,6 +1540,11 @@ export function createServerEnvironmentAtoms<R, E>(
         );
       },
     }),
+    operationsMetrics: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:operations-metrics",
+      tag: WS_METHODS.serverGetOperationsMetrics,
+      staleTimeMs: 30_000,
+    }),
     resourceTelemetry: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
       label: "environment-data:server:resource-telemetry",
       tag: WS_METHODS.subscribeResourceTelemetry,

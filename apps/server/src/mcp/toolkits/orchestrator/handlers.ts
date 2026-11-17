@@ -1,6 +1,7 @@
 import { OrchestratorMcpFailure } from "@t3tools/contracts";
 import { OrchestratorToolkit } from "./tools.ts";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 
 import * as PeerForwarding from "../../../peer/PeerForwarding.ts";
 import * as PeerLinkRequests from "../../../peer/PeerLinkRequests.ts";
@@ -11,6 +12,56 @@ import * as McpInvocationContext from "../../McpInvocationContext.ts";
 import * as McpToolAccess from "../../McpToolAccess.ts";
 import * as OrchestratorMcpService from "../../OrchestratorMcpService.ts";
 import * as ThreadMetadataMcpService from "../../ThreadMetadataMcpService.ts";
+import * as OperationsService from "../../../commandCenter/OperationsService.ts";
+
+const requireOperationCenter = McpInvocationContext.McpInvocationContext.pipe(
+  Effect.flatMap((scope) =>
+    scope.operationCenter === true
+      ? Effect.void
+      : Effect.fail(
+          new OrchestratorMcpFailure({
+            code: "invalid_request",
+            message: "Only the Operation Center's threads can use this tool.",
+          }),
+        ),
+  ),
+);
+
+/** Read once at build, so only the server, which has the service, needs to provide it. */
+const operationsHandlers = (
+  operations: OperationsService.OperationsService["Service"] | undefined,
+) => {
+  const available = Effect.gen(function* () {
+    yield* requireOperationCenter;
+    if (operations !== undefined) return operations;
+    return yield* new OrchestratorMcpFailure({
+      code: "orchestration_error",
+      message: "The Operation Center is not available on this server.",
+    });
+  });
+  return {
+    t3_operations_metrics: McpToolAccess.readsAsCaller(
+      (input: { readonly sinceDays?: number | undefined }) =>
+        available.pipe(
+          Effect.flatMap((service) =>
+            service.metrics({ sinceDays: input.sinceDays ?? 7 }).pipe(
+              Effect.mapError(
+                (error) =>
+                  new OrchestratorMcpFailure({
+                    code: "orchestration_error",
+                    message: error.message,
+                  }),
+              ),
+            ),
+          ),
+        ),
+    ),
+    t3_operations_apply: McpToolAccess.writesEnvironment(
+      (input: Parameters<OperationsService.OperationsService["Service"]["apply"]>[0]) =>
+        available.pipe(Effect.flatMap((service) => service.apply(input))),
+    ),
+  };
+};
 
 const handlers = {
   orchestrator_capabilities: McpToolAccess.reads((input) =>
@@ -237,6 +288,17 @@ const handlers = {
         return yield* service.interruptThread(scope, input);
       }),
   ),
-} satisfies McpToolAccess.Handlers<typeof OrchestratorToolkit.tools>;
+} satisfies Omit<
+  McpToolAccess.Handlers<typeof OrchestratorToolkit.tools>,
+  "t3_operations_metrics" | "t3_operations_apply"
+>;
 
-export const layer = McpToolAccess.toLayer(OrchestratorToolkit, handlers);
+export const layer = McpToolAccess.toLayer(
+  OrchestratorToolkit,
+  Effect.serviceOption(OperationsService.OperationsService).pipe(
+    Effect.map((operations) => ({
+      ...handlers,
+      ...operationsHandlers(Option.getOrUndefined(operations)),
+    })),
+  ),
+);

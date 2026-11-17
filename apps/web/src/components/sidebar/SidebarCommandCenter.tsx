@@ -7,7 +7,9 @@ import type { ScopedThreadRef } from "@t3tools/contracts";
 import type { AsyncResult } from "effect/reactivity";
 import { useNavigate } from "@tanstack/react-router";
 import {
+  ActivityIcon,
   BotIcon,
+  ChartNoAxesColumnIcon,
   CheckIcon,
   ChevronRightIcon,
   PlusIcon,
@@ -19,7 +21,7 @@ import { memo, useState } from "react";
 import { usePrimarySettings } from "../../hooks/useSettings";
 import { useThreadActions } from "../../hooks/useThreadActions";
 import { useThreadRouteRef } from "../../hooks/useThreadRouteTarget";
-import { openCommandCenter } from "../../lib/commandCenter";
+import { CENTER_LABELS, type Center, openCommandCenter } from "../../lib/commandCenter";
 import { useQuietThreadShells } from "../../state/entities";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { buildThreadRouteParams } from "../../threadRoutes";
@@ -55,12 +57,29 @@ function RowAction(props: {
   );
 }
 
-/** The Command Center's character and its main agent threads, newest first; settled ones fold away. */
-export const SidebarCommandCenter = memo(function SidebarCommandCenter() {
+const CHARACTERS: Record<Center, { readonly icon: React.ReactNode; readonly className: string }> = {
+  command: {
+    icon: <BotIcon className="size-4" />,
+    className: "bg-primary text-primary-foreground",
+  },
+  operations: {
+    icon: <ActivityIcon className="size-4" />,
+    className: "bg-emerald-600 text-white dark:bg-emerald-500",
+  },
+};
+
+/** A center's character and its main agent threads, newest first; settled ones fold away. */
+export const SidebarCommandCenter = memo(function SidebarCommandCenter(props: {
+  readonly center: Center;
+}) {
+  const { center } = props;
+  const label = CENTER_LABELS[center];
   const navigate = useNavigate();
   const { isMobile, setOpenMobile } = useSidebar();
   const environmentId = usePrimaryEnvironmentId();
-  const threadIds = usePrimarySettings((settings) => settings.commandCenter.threadIds);
+  const threadIds = usePrimarySettings((settings) =>
+    center === "operations" ? settings.operationCenter.threadIds : settings.commandCenter.threadIds,
+  );
   const shells = useQuietThreadShells();
   const route = useThreadRouteRef();
   const { settleThread, unsettleThread, confirmAndDeleteThread } = useThreadActions();
@@ -139,7 +158,7 @@ export const SidebarCommandCenter = memo(function SidebarCommandCenter() {
 
   const open = (startNew: boolean) => {
     if (isMobile) setOpenMobile(false);
-    void openCommandCenter({ navigate }, { startNew });
+    void openCommandCenter({ navigate }, { startNew, center });
   };
 
   return (
@@ -149,24 +168,49 @@ export const SidebarCommandCenter = memo(function SidebarCommandCenter() {
           <SidebarMenuButton size="lg" onClick={() => open(false)}>
             <span
               aria-hidden
-              className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
+              className={`flex size-8 shrink-0 items-center justify-center rounded-full ${CHARACTERS[center].className}`}
             >
-              <BotIcon className="size-4" />
+              {CHARACTERS[center].icon}
             </span>
             <span className="flex min-w-0 flex-col">
-              <span className="truncate font-medium">Command Center</span>
+              <span className="truncate font-medium">{label}</span>
               <span className="truncate text-xs text-muted-foreground">
-                {active.length === 0 ? "Ask me anything" : `${active.length} open`}
+                {active.length > 0
+                  ? `${active.length} open`
+                  : center === "operations"
+                    ? "Review jobs and tune agents"
+                    : "Ask me anything"}
               </span>
             </span>
           </SidebarMenuButton>
         </SidebarMenuItem>
+        {center === "operations" ? (
+          <SidebarMenuItem className="shrink-0">
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <SidebarMenuButton
+                    aria-label="Operations dashboard"
+                    size="icon"
+                    onClick={() => {
+                      if (isMobile) setOpenMobile(false);
+                      void navigate({ to: "/operations" });
+                    }}
+                  >
+                    <ChartNoAxesColumnIcon />
+                  </SidebarMenuButton>
+                }
+              />
+              <TooltipPopup side="top">Operations dashboard</TooltipPopup>
+            </Tooltip>
+          </SidebarMenuItem>
+        ) : null}
         <SidebarMenuItem className="shrink-0">
           <Tooltip>
             <TooltipTrigger
               render={
                 <SidebarMenuButton
-                  aria-label="New Command Center thread"
+                  aria-label={`New ${label} thread`}
                   size="icon"
                   onClick={() => open(true)}
                 >
@@ -174,7 +218,7 @@ export const SidebarCommandCenter = memo(function SidebarCommandCenter() {
                 </SidebarMenuButton>
               }
             />
-            <TooltipPopup side="top">New Command Center thread</TooltipPopup>
+            <TooltipPopup side="top">New {label} thread</TooltipPopup>
           </Tooltip>
         </SidebarMenuItem>
       </SidebarMenu>

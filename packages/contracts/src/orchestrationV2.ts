@@ -900,6 +900,8 @@ export const OrchestrationV2RemoteTaskChild = Schema.Struct({
   label: Schema.String,
   /** The title it launched with there; absent on tasks recorded before it was kept. */
   title: Schema.optional(Schema.String),
+  /** The saved agent it runs as, for the Operation Center's metrics. */
+  agent: Schema.optional(Schema.String),
   /** The run there that carries the task; absent on tasks recorded before it was kept. */
   runId: Schema.optional(RunId),
   /**

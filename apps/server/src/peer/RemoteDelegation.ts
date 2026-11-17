@@ -415,6 +415,7 @@ const make = Effect.gen(function* () {
         threadId: launched.threadId,
         label,
         title,
+        ...(input.agent === undefined ? {} : { agent: input.agent }),
         ...(launched.runId === null ? {} : { runId: launched.runId }),
       };
       const recorded = yield* threads

@@ -21,6 +21,7 @@ describe("applyAgentProfile", () => {
       const applied = yield* applyAgentProfile({ task: "Ship 1.2.", agent: "release" }, [releaser]);
       assert.deepStrictEqual(applied, {
         task: "Follow RELEASING.md.\n\nShip 1.2.",
+        agent: "Release",
         title: "Release",
         target: { providerInstanceId: releaser.modelSelection!.instanceId, model: "claude-haiku" },
         runtimeMode: "auto-accept-edits",
@@ -45,6 +46,7 @@ describe("applyAgentProfile", () => {
         projectId: ProjectId.make("project:app"),
       });
       assert.strictEqual(overridden.title, "Ship");
+      assert.strictEqual(overridden.agent, "Release");
       assert.strictEqual(overridden.runtimeMode, "approval-required");
       assert.strictEqual(overridden.isolation, "shared");
     }),
