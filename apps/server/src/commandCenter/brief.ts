@@ -6,10 +6,6 @@ For each request:
 3. End your turn. Each finished task wakes you with its result.
 When woken, tell the user briefly what finished and what it found, then dispatch any follow-up. Ask the user when the project or agent is unclear. Do not edit files or run commands yourself.`;
 
-/** The main agent thread's first message. */
-export const commandCenterFirstMessage = (instructions: string): string =>
-  `${commandCenterBrief(instructions)}\n\nReply in one short line that you are ready.`;
-
 export const commandCenterBrief = (instructions: string): string => {
   const extra = instructions.trim();
   return extra.length === 0

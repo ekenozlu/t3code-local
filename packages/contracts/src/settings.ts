@@ -1366,10 +1366,10 @@ export const AgentProfile = Schema.Struct({
 export type AgentProfile = typeof AgentProfile.Type;
 
 export const CommandCenterSettings = Schema.Struct({
-  /** The main agent's thread, created on first open. */
-  threadId: Schema.NullOr(ThreadId),
+  /** The main agent's threads, oldest first; archiving one hides it, deleting drops it. */
+  threadIds: Schema.Array(ThreadId).pipe(Schema.withDecodingDefault(Effect.succeed([]))),
   /** Extra guidance for the main agent, added to its brief. */
-  instructions: Schema.String,
+  instructions: Schema.String.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
 });
 export type CommandCenterSettings = typeof CommandCenterSettings.Type;
 
@@ -1427,7 +1427,7 @@ export const ServerSettings = Schema.Struct({
   ),
   agentProfiles: Schema.Array(AgentProfile).pipe(Schema.withDecodingDefault(Effect.succeed([]))),
   commandCenter: CommandCenterSettings.pipe(
-    Schema.withDecodingDefault(Effect.succeed({ threadId: null, instructions: "" })),
+    Schema.withDecodingDefault(Effect.succeed({ threadIds: [], instructions: "" })),
   ),
   projectScriptOverrides: Schema.Record(ProjectId, Schema.NullOr(Schema.Array(ProjectScript))).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
@@ -1878,7 +1878,7 @@ export const ServerSettingsPatch = Schema.Struct({
   agentProfiles: Schema.optionalKey(Schema.Array(AgentProfile)),
   commandCenter: Schema.optionalKey(
     Schema.Struct({
-      threadId: Schema.optionalKey(Schema.NullOr(ThreadId)),
+      threadIds: Schema.optionalKey(Schema.Array(ThreadId)),
       instructions: Schema.optionalKey(Schema.String),
     }),
   ),

@@ -10,8 +10,10 @@ project, and tells you when the work finishes.
    fixer or a release agent. The main agent picks an agent by its description, so describe when to
    use it. An agent can also set its own instructions, model, permissions, and whether it works in
    the project's checkout or a new worktree. Leave a setting on the main agent's to inherit it.
-2. Open **Command Center** from the sidebar or the command palette, or press `mod+alt+c` on web
-   and desktop. The first time, T3 Code starts the main agent's thread with your default model.
+2. Click the Command Center at the bottom of the sidebar, use the command palette, or press
+   `mod+alt+c` on web and desktop. The first time, T3 Code starts the main agent's thread with
+   your default model. Use **+** beside it to start another main agent thread, for example one per
+   initiative; they are listed under it, newest first.
 3. Ask for what you want, such as "fix the flaky login test in web and cut a patch release of
    api".
 
@@ -24,5 +26,7 @@ job and its status. When a job finishes, the main agent wakes up and reports bac
 - Jobs run at most with the main agent's permissions. An agent set to a broader mode than the main
   agent's is refused.
 - Use **Main agent guidance** in Settings to tell the main agent which project holds what.
-- Archive the main agent's thread to start over. The next open starts a new one.
+- Hover a main agent thread to settle or delete it. Settled threads fold into **Settled** at the
+  end of the list, where you can un-settle them; clicking the Command Center skips them. Archive one
+  to take it off the list; unarchive it to bring it back.
 - Each server has its own Command Center. It uses the agents saved on that server.

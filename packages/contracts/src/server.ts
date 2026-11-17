@@ -413,9 +413,11 @@ export class ServerPrepareTriageError extends Schema.TaggedError<ServerPrepareTr
   }
 }
 
-/** The model the main agent starts with when the client opens the Command Center first. */
+/** Opens the newest live main agent thread, or starts one with `modelSelection`. */
 export const ServerEnsureCommandCenterThreadInput = Schema.Struct({
   modelSelection: ModelSelection,
+  /** Start another main agent thread even when one is live. */
+  startNew: Schema.optional(Schema.Boolean),
 });
 export type ServerEnsureCommandCenterThreadInput = typeof ServerEnsureCommandCenterThreadInput.Type;
 

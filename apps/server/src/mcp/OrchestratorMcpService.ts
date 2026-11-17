@@ -2538,7 +2538,7 @@ const make = Effect.gen(function* () {
                 model: profile.modelSelection?.model ?? null,
               })),
             }),
-        ...(parent !== undefined && parent.thread.id === settings.commandCenter.threadId
+        ...(parent !== undefined && settings.commandCenter.threadIds.includes(parent.thread.id)
           ? { commandCenter: commandCenterBrief(settings.commandCenter.instructions) }
           : {}),
         features: {
@@ -2605,7 +2605,12 @@ const make = Effect.gen(function* () {
               model: resolved.modelSelection.model,
               ...(options === undefined ? {} : { options }),
             },
-            ...(input.isolation === "worktree"
+            // A folder that is not a repository (or has no commit) has no worktrees; it works in place.
+            ...(input.isolation === "worktree" &&
+            (yield* gitDriver.resolveCommit({ cwd: project.workspaceRoot, revision: "HEAD" }).pipe(
+              Effect.as(true),
+              Effect.orElseSucceed(() => false),
+            ))
               ? {
                   workspaceStrategy: {
                     type: "worktree",

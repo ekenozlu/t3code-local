@@ -504,7 +504,6 @@ const make = Effect.gen(function* () {
       .launch({
         commandId,
         threadId: ThreadId.make(`thread:${id}`),
-        reuseExistingThread: true,
         projectId: input.projectId,
         title: input.title,
         modelSelection: input.modelSelection,

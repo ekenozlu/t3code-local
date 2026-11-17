@@ -38,10 +38,7 @@ import * as McpSchema from "effect/ai/McpSchema";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 
 import { taskPrompt } from "../../apps/server/src/mcp/delegatedTaskModes.ts";
-import {
-  commandCenterBrief,
-  commandCenterFirstMessage,
-} from "../../apps/server/src/commandCenter/brief.ts";
+import { commandCenterBrief } from "../../apps/server/src/commandCenter/brief.ts";
 import * as McpInvocationContext from "../../apps/server/src/mcp/McpInvocationContext.ts";
 import { advertisedJsonSchema } from "../../apps/server/src/mcp/advertisedJsonSchema.ts";
 import * as Contracts from "@t3tools/contracts";
@@ -1057,15 +1054,13 @@ export const buildMessages = (sample: Sample) => {
       ? "You are a subagent started by the parent agent's Agent tool. Your final message goes to the parent agent, not to the user."
       : undefined,
     context,
+    // The main agent reads its brief from AGENTS.md in its folder.
+    testCase.setup.commandCenter === true ? commandCenterBrief("") : undefined,
   ];
   const reminders = base.reminders.toSpliced(base.gitStatusAt, 0, reminder(gitStatus(testCase)));
   push("user", ...reminders, ...notes.flatMap((note) => (note ? [reminder(note)] : [])));
   const toolSearch = findTool(base, "ToolSearch")?.name ?? "ToolSearch";
   let nextId = 0;
-  if (testCase.setup.commandCenter === true) {
-    push("user", text(commandCenterFirstMessage("")));
-    push("assistant", text("Ready."));
-  }
   for (const turn of priorTurns) {
     const calls = (turn.toolCalls ?? []).map((call) => {
       const tool = findTool(base, call.tool);

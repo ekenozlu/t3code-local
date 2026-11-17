@@ -129,7 +129,7 @@ import { useSidebarProjectGroups } from "../hooks/useSidebarProjectGroups";
 import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
 import { registerSettleAndAdvance } from "../settleAndAdvance";
 import { startNewThreadFromContext } from "../lib/chatThreadActions";
-import { useClientSettings } from "../hooks/useSettings";
+import { useClientSettings, usePrimarySettings } from "../hooks/useSettings";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useNowMinute } from "../hooks/useNowMinute";
@@ -934,6 +934,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     markThreadUnread,
     archiveThread,
     deleteThread,
+    confirmAndDeleteThread,
   } = useThreadActions();
   const updateThreadMetadata = useOrchestrationCommand(threadEnvironment.updateMetadata, {
     reportFailure: false,
@@ -1116,7 +1117,17 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
             ),
           ),
         );
-  const threads = useQuietThreadShells();
+  const allThreads = useQuietThreadShells();
+  const commandCenterThreadIds = usePrimarySettings((settings) => settings.commandCenter.threadIds);
+  // The Command Center lists its own threads at the bottom of the sidebar.
+  const threads =
+    commandCenterThreadIds.length === 0
+      ? allThreads
+      : allThreads.filter(
+          (thread) =>
+            thread.environmentId !== primaryEnvironmentId ||
+            !commandCenterThreadIds.includes(thread.id),
+        );
   const promotingDraftThreadKeys = usePromotingDraftThreadKeys();
   const listedThreads =
     promotingDraftThreadKeys.length === 0
@@ -1626,6 +1637,21 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         : () => void router.navigate({ to: "/" });
   };
 
+  const attemptDelete = (threadRef: ScopedThreadRef) => {
+    void (async () => {
+      const result = await confirmAndDeleteThread(threadRef);
+      if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
+        const error = squashAtomCommandFailure(result);
+        toastManager.add(
+          stackedThreadToast({
+            type: "error",
+            title: "Failed to delete thread",
+            description: error instanceof Error ? error.message : "An error occurred.",
+          }),
+        );
+      }
+    })();
+  };
   const attemptSettle = (
     threadRef: ScopedThreadRef,
     opts: { coSettlingKeys?: ReadonlySet<string> } = {},
@@ -3477,6 +3503,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                             renamingTitle={renamingThreadKey === threadKey ? renamingTitle : ""}
                             onContextMenu={handleThreadContextMenu}
                             onSettle={attemptSettle}
+                            onDelete={attemptDelete}
                             onActionSweepStart={startActionSweep}
                             onUnsettle={attemptUnsettle}
                             onSnooze={attemptSnooze}

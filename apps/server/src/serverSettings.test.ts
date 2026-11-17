@@ -1087,6 +1087,23 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
     }).pipe(Effect.provide(layerServerSettings())),
   );
 
+  it.effect("saves one Command Center field while the other is still its default", () =>
+    Effect.gen(function* () {
+      const serverConfig = yield* ServerConfig.ServerConfig;
+      const fileSystem = yield* FileSystem.FileSystem;
+      const serverSettings = yield* ServerSettingsModule.ServerSettingsService;
+
+      yield* serverSettings.updateSettings({ commandCenter: { instructions: "web is Next.js" } });
+
+      const persisted = JSON.parse(yield* fileSystem.readFileString(serverConfig.settingsPath));
+      assert.deepStrictEqual(persisted.commandCenter, { instructions: "web is Next.js" });
+      assert.deepStrictEqual((yield* serverSettings.getSettings).commandCenter, {
+        threadIds: [],
+        instructions: "web is Next.js",
+      });
+    }).pipe(Effect.provide(layerServerSettings())),
+  );
+
   it.effect("folds a legacy in-config enabled flag into the envelope on load", () =>
     Effect.gen(function* () {
       const serverConfig = yield* ServerConfig.ServerConfig;
