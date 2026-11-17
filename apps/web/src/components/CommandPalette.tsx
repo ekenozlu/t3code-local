@@ -59,6 +59,7 @@ import {
   ArrowLeftIcon,
   BugIcon,
   ChartNoAxesColumnIcon,
+  RadarIcon,
   CheckIcon,
   ChevronRightIcon,
   CornerLeftUpIcon,
@@ -101,6 +102,7 @@ import { useDesktopLocalBootstraps } from "../connection/useDesktopLocalBootstra
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
 import { useOpenPanelPullRequestUrl } from "../hooks/useOpenPanelPullRequestUrl";
 import { copyThreadReference } from "../lib/copyThreadReference";
+import { openCommandCenter } from "../lib/commandCenter";
 import {
   queueWorkspaceFocusFromPalette,
   restoreWorkspaceFocusFromPalette,
@@ -1665,6 +1667,18 @@ function OpenCommandPaletteDialog(props: {
             ? paletteRouteTarget.threadRef.environmentId
             : null),
       );
+    },
+  });
+
+  actionItems.push({
+    kind: "action",
+    value: "action:command-center",
+    searchTerms: ["command center", "main agent", "orchestrate", "dispatch", "agents"],
+    title: "Open Command Center",
+    icon: <RadarIcon className={ITEM_ICON_CLASS} />,
+    shortcutCommand: "commandCenter.open",
+    run: async () => {
+      await openCommandCenter({ navigate });
     },
   });
 

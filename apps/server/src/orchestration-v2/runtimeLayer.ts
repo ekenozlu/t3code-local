@@ -1,3 +1,4 @@
+import * as CommandCenterService from "../commandCenter/CommandCenterService.ts";
 import * as WorktreeBranchSync from "./WorktreeBranchSync.ts";
 import * as GuestShareService from "../guest/GuestShareService.ts";
 import * as UsageLimitRecoveryWorker from "./UsageLimitRecoveryWorker.ts";
@@ -395,6 +396,15 @@ export const layerProduction = Layer.mergeAll(
   layerScheduledTaskProvided,
   layerScratchThreadPromotionProvided,
   layerSecretRequestsProvided,
+  CommandCenterService.layer.pipe(
+    Layer.provide(
+      Layer.mergeAll(
+        layerThreadLaunchProvided,
+        layerThreadManagementProvided,
+        layerManagedProjectFoldersProvided,
+      ),
+    ),
+  ),
   GuestShareService.layer.pipe(
     Layer.provide(Layer.merge(layerOrchestratorProvided, layerCommandOutputHubProvided)),
   ),

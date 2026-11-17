@@ -3075,7 +3075,7 @@ export const OrchestrationV2Command = Schema.Union([
     worktreePath: Schema.NullOr(TrimmedNonEmptyString),
     /** Only the server sets this; a client's thread.create never carries one. */
     linkOrigin: Schema.optional(OrchestrationV2LinkOrigin),
-    /** Only the server sets this, with `linkOrigin`, for a linked environment's delegated task. */
+    /** Only the server sets this, for a task another thread delegated to this one's project. */
     delegatedFrom: Schema.optional(OrchestrationV2DelegatedFrom),
     importedNativeThread: Schema.optional(
       Schema.Struct({

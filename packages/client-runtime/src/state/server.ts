@@ -1370,6 +1370,11 @@ export function createServerEnvironmentAtoms<R, E>(
       tag: WS_METHODS.serverPrepareTriage,
       concurrency: { mode: "singleFlight", key: ({ environmentId }) => environmentId },
     }),
+    ensureCommandCenterThread: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:ensure-command-center-thread",
+      tag: WS_METHODS.serverEnsureCommandCenterThread,
+      concurrency: { mode: "singleFlight", key: ({ environmentId }) => environmentId },
+    }),
     databaseStorage,
     databaseCompactionRecommendations,
     reclaimDatabaseSpace: createEnvironmentRpcCommand(runtime, {

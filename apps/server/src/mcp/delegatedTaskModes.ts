@@ -1,4 +1,5 @@
 import {
+  type AgentProfile,
   type ModelSelection,
   OrchestratorMcpFailure,
   type OrchestratorMcpDelegateTaskInput,
@@ -92,4 +93,59 @@ export function taskPrompt(input: OrchestratorMcpDelegateTaskInput): string {
   return input.role === undefined || input.role === "general"
     ? input.task
     : `Act as the ${input.role} sub-agent for this task.\n\n${input.task}`;
+}
+
+/**
+ * `input` with the saved agent it names applied: the agent's instructions lead
+ * the task, and its model, modes and isolation fill what the caller left out.
+ */
+export function applyAgentProfile(
+  input: OrchestratorMcpDelegateTaskInput,
+  profiles: ReadonlyArray<AgentProfile>,
+): Effect.Effect<OrchestratorMcpDelegateTaskInput, OrchestratorMcpFailure> {
+  if (input.agent === undefined) return Effect.succeed(input);
+  const wanted = input.agent.toLowerCase();
+  const profile = profiles.find(
+    (candidate) => candidate.id === input.agent || candidate.name.toLowerCase() === wanted,
+  );
+  if (profile === undefined) {
+    return Effect.fail(
+      new OrchestratorMcpFailure({
+        code: "invalid_request",
+        message:
+          profiles.length === 0
+            ? `No saved agent is named "${input.agent}", and none are saved. Omit agent.`
+            : `No saved agent is named "${input.agent}". Saved agents: ${profiles.map((candidate) => candidate.name).join(", ")}.`,
+      }),
+    );
+  }
+  const { agent: _agent, ...rest } = input;
+  const target = input.target;
+  // A caller naming any of the provider, driver or model picks its own; the agent's would not fit it.
+  const keepsProfileModel =
+    profile.modelSelection !== null &&
+    target?.providerInstanceId === undefined &&
+    target?.driverKind === undefined &&
+    target?.model === undefined;
+  const instructions = profile.instructions.trim();
+  return Effect.succeed({
+    ...rest,
+    task: instructions.length === 0 ? input.task : `${instructions}\n\n${input.task}`,
+    title: input.title ?? profile.name,
+    ...(keepsProfileModel && profile.modelSelection !== null
+      ? {
+          target: {
+            ...target,
+            providerInstanceId: profile.modelSelection.instanceId,
+            model: profile.modelSelection.model,
+            ...(target?.options === undefined && profile.modelSelection.options !== undefined
+              ? { options: profile.modelSelection.options }
+              : {}),
+          },
+        }
+      : {}),
+    runtimeMode: input.runtimeMode ?? profile.runtimeMode ?? undefined,
+    interactionMode: input.interactionMode ?? profile.interactionMode ?? undefined,
+    isolation: input.isolation ?? profile.isolation,
+  });
 }

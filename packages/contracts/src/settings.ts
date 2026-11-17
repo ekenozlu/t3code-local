@@ -34,7 +34,7 @@ import {
 } from "./model.ts";
 import { ModelSelection } from "./modelSelection.ts";
 import { ProjectScript, type ProjectMutation } from "./project.ts";
-import { DEFAULT_RUNTIME_MODE, RuntimeMode } from "./providerPolicy.ts";
+import { DEFAULT_RUNTIME_MODE, ProviderInteractionMode, RuntimeMode } from "./providerPolicy.ts";
 import { BrowserProfile, BrowserProfileId, DEFAULT_BROWSER_PROFILE_ID } from "./browserProfile.ts";
 import {
   BrowserRecordingFrameRate,
@@ -1350,6 +1350,29 @@ export const CloudSpeechCredentials = Schema.Struct({
   openrouter: CloudSpeechCredential,
 });
 
+/** A saved sub-agent the Command Center's main agent delegates to by name. */
+export const AgentProfile = Schema.Struct({
+  id: TrimmedNonEmptyString,
+  name: TrimmedNonEmptyString,
+  /** When to pick this agent; the main agent routes by it. */
+  description: TrimmedString,
+  instructions: Schema.String,
+  /** Null inherits the delegating thread's. */
+  modelSelection: Schema.NullOr(ModelSelection),
+  runtimeMode: Schema.NullOr(RuntimeMode),
+  interactionMode: Schema.NullOr(ProviderInteractionMode),
+  isolation: Schema.Literals(["shared", "worktree"]),
+});
+export type AgentProfile = typeof AgentProfile.Type;
+
+export const CommandCenterSettings = Schema.Struct({
+  /** The main agent's thread, created on first open. */
+  threadId: Schema.NullOr(ThreadId),
+  /** Extra guidance for the main agent, added to its brief. */
+  instructions: Schema.String,
+});
+export type CommandCenterSettings = typeof CommandCenterSettings.Type;
+
 export const ServerSettings = Schema.Struct({
   // Null means unmigrated; empty is authoritative and must not resurrect cleared preferences.
   favorites: Schema.NullOr(ModelFavorites).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
@@ -1401,6 +1424,10 @@ export const ServerSettings = Schema.Struct({
   defaultAutoPull: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   defaultProjectScripts: Schema.Array(ProjectScript).pipe(
     Schema.withDecodingDefault(Effect.succeed([])),
+  ),
+  agentProfiles: Schema.Array(AgentProfile).pipe(Schema.withDecodingDefault(Effect.succeed([]))),
+  commandCenter: CommandCenterSettings.pipe(
+    Schema.withDecodingDefault(Effect.succeed({ threadId: null, instructions: "" })),
   ),
   projectScriptOverrides: Schema.Record(ProjectId, Schema.NullOr(Schema.Array(ProjectScript))).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
@@ -1847,6 +1874,14 @@ export const ServerSettingsPatch = Schema.Struct({
   ),
   defaultAutoPull: Schema.optionalKey(Schema.Boolean),
   defaultProjectScripts: Schema.optionalKey(Schema.Array(ProjectScript)),
+  // Replaces the whole list.
+  agentProfiles: Schema.optionalKey(Schema.Array(AgentProfile)),
+  commandCenter: Schema.optionalKey(
+    Schema.Struct({
+      threadId: Schema.optionalKey(Schema.NullOr(ThreadId)),
+      instructions: Schema.optionalKey(Schema.String),
+    }),
+  ),
   projectScriptOverrides: Schema.optionalKey(
     Schema.Record(ProjectId, Schema.NullOr(Schema.Array(ProjectScript))),
   ),

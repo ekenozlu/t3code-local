@@ -24,6 +24,7 @@ import {
 } from "./keybindings.ts";
 import { EditorId, FileManagerRevealKind, RemoteOpenTarget } from "./editor.ts";
 import { ManagedPolicySummary } from "./managedPolicy.ts";
+import { ModelSelection } from "./modelSelection.ts";
 import { ModelCapabilities, ProviderOptionDescriptor } from "./model.ts";
 import { RuntimeMode } from "./providerPolicy.ts";
 import { ProviderDriverKind, ProviderInstanceId } from "./providerInstance.ts";
@@ -409,6 +410,28 @@ export class ServerPrepareTriageError extends Schema.TaggedError<ServerPrepareTr
 ) {
   override get message(): string {
     return "Could not write the triage session files.";
+  }
+}
+
+/** The model the main agent starts with when the client opens the Command Center first. */
+export const ServerEnsureCommandCenterThreadInput = Schema.Struct({
+  modelSelection: ModelSelection,
+});
+export type ServerEnsureCommandCenterThreadInput = typeof ServerEnsureCommandCenterThreadInput.Type;
+
+export const ServerEnsureCommandCenterThreadResult = Schema.Struct({
+  threadId: ThreadId,
+  projectId: ProjectId,
+});
+export type ServerEnsureCommandCenterThreadResult =
+  typeof ServerEnsureCommandCenterThreadResult.Type;
+
+export class ServerEnsureCommandCenterThreadError extends Schema.TaggedError<ServerEnsureCommandCenterThreadError>()(
+  "ServerEnsureCommandCenterThreadError",
+  { detail: Schema.String, cause: Schema.optional(Schema.Defect()) },
+) {
+  override get message(): string {
+    return `Could not start the Command Center: ${this.detail}`;
   }
 }
 

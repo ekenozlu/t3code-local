@@ -1,4 +1,5 @@
 import type { AnyRouter } from "@tanstack/react-router";
+import { openCommandCenter } from "../lib/commandCenter";
 
 import {
   dispatchCommandPalette,
@@ -91,6 +92,12 @@ export function installCommandPaletteCommands(
         consume(event);
         dispatchCommandPalette({ _tag: "SetOpen", open: false });
         void router.navigate({ to: "/usage" });
+      },
+      "commandCenter.open": (event) => {
+        consume(event);
+        if (event.repeat) return;
+        dispatchCommandPalette({ _tag: "SetOpen", open: false });
+        void openCommandCenter(router);
       },
       "commandPalette.toggle": toggleOverlay("commandPalette.toggle"),
       "filePicker.toggle": toggleOverlay("filePicker.toggle"),

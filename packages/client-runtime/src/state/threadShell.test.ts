@@ -442,6 +442,15 @@ describe("v2 thread shell lists", () => {
     entries.set(environmentId, { ...entries.get(environmentId)!, enabled: false });
     registry.set(catalogValueAtom, { ...catalog, entries });
     expect(listed()).toEqual([`${remoteEnvironmentId}/${task.id}`]);
+
+    // A task the parent delegated to another project here stays in that project's list.
+    registry.set(catalogValueAtom, catalog);
+    const localTask = { ...task, id: ThreadId.make("local-task") };
+    registry.set(snapshotAtom(environmentId), {
+      ...v2ShellSnapshot,
+      threads: [parent, localTask],
+    });
+    expect(listed()).toEqual([`${environmentId}/${parent.id}`, `${environmentId}/${localTask.id}`]);
     disposeInputs();
     disposeParent();
     disposeNavigation();

@@ -320,6 +320,9 @@ import {
   ServerPrepareTriageError,
   ServerPrepareTriageInput,
   ServerPrepareTriageResult,
+  ServerEnsureCommandCenterThreadError,
+  ServerEnsureCommandCenterThreadInput,
+  ServerEnsureCommandCenterThreadResult,
   OtlpEndpointCheckResult,
   ServerConfig,
   ServerProviderUpdateError,
@@ -546,6 +549,7 @@ export const WS_METHODS = {
   serverCheckOtlpEndpoint: "server.checkOtlpEndpoint",
   serverListTextGeneratorModels: "server.listTextGeneratorModels",
   serverPrepareTriage: "server.prepareTriage",
+  serverEnsureCommandCenterThread: "server.ensureCommandCenterThread",
   serverSignalProcess: "server.signalProcess",
   serverReportClientActivity: "server.reportClientActivity",
   serverGetUsageSummary: "server.getUsageSummary",
@@ -1012,6 +1016,12 @@ const WsServerPrepareTriageRpc = Rpc.make(WS_METHODS.serverPrepareTriage, {
   payload: ServerPrepareTriageInput,
   success: ServerPrepareTriageResult,
   error: Schema.Union([ServerPrepareTriageError, EnvironmentAuthorizationError]),
+});
+
+const WsServerEnsureCommandCenterThreadRpc = Rpc.make(WS_METHODS.serverEnsureCommandCenterThread, {
+  payload: ServerEnsureCommandCenterThreadInput,
+  success: ServerEnsureCommandCenterThreadResult,
+  error: Schema.Union([ServerEnsureCommandCenterThreadError, EnvironmentAuthorizationError]),
 });
 
 const WsServerGetUsageSummaryRpc = Rpc.make(WS_METHODS.serverGetUsageSummary, {
@@ -2160,6 +2170,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerCheckOtlpEndpointRpc,
   WsServerListTextGeneratorModelsRpc,
   WsServerPrepareTriageRpc,
+  WsServerEnsureCommandCenterThreadRpc,
   WsServerGetUsageSummaryRpc,
   WsServerRefreshUsageRatesRpc,
   WsServerSignalProcessRpc,

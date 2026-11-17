@@ -38,6 +38,10 @@ import * as McpSchema from "effect/ai/McpSchema";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 
 import { taskPrompt } from "../../apps/server/src/mcp/delegatedTaskModes.ts";
+import {
+  commandCenterBrief,
+  commandCenterFirstMessage,
+} from "../../apps/server/src/commandCenter/brief.ts";
 import * as McpInvocationContext from "../../apps/server/src/mcp/McpInvocationContext.ts";
 import { advertisedJsonSchema } from "../../apps/server/src/mcp/advertisedJsonSchema.ts";
 import * as Contracts from "@t3tools/contracts";
@@ -305,6 +309,11 @@ export const McpToolUseCase = Schema.Struct({
     role: Schema.Literals(["top", "delegated-child", "native-subagent"]),
     /** Runs only on this harness, for cases whose right answer depends on it. */
     harness: Schema.optional(Schema.Literals(["claude", "codex"])),
+    /**
+     * The thread is the Command Center's main agent: T3's first message is its brief, and
+     * `orchestrator_capabilities` returns it as `commandCenter`.
+     */
+    commandCenter: Schema.optional(Schema.Boolean),
     /** The Linked environments beta is on, so T3 lists its link tools. */
     linkedEnvironments: Schema.optional(Schema.Boolean),
     /** delegate_task `role` for a delegated child. T3 builds the child's first message from it. */
@@ -1053,6 +1062,10 @@ export const buildMessages = (sample: Sample) => {
   push("user", ...reminders, ...notes.flatMap((note) => (note ? [reminder(note)] : [])));
   const toolSearch = findTool(base, "ToolSearch")?.name ?? "ToolSearch";
   let nextId = 0;
+  if (testCase.setup.commandCenter === true) {
+    push("user", text(commandCenterFirstMessage("")));
+    push("assistant", text("Ready."));
+  }
   for (const turn of priorTurns) {
     const calls = (turn.toolCalls ?? []).map((call) => {
       const tool = findTool(base, call.tool);
@@ -1413,10 +1426,11 @@ const withProductFields = (name: string, value: unknown, child: boolean): unknow
 };
 
 /** Cases mock a Claude caller, so the inherited fields follow the model under test. */
-const capabilities = ({ base }: Sample, value: unknown) =>
+const capabilities = ({ base, testCase }: Sample, value: unknown) =>
   isRecord(value)
     ? {
         ...value,
+        ...(testCase.setup.commandCenter === true ? { commandCenter: commandCenterBrief("") } : {}),
         inheritedModel: base.model,
         ...(base.codex
           ? {

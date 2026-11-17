@@ -683,6 +683,8 @@ export function createEnvironmentThreadShellAtoms(input: {
         const parent = thread.delegatedFrom;
         if (
           parent !== undefined &&
+          // A task delegated to another project here stays in that project's list.
+          parent.environmentId !== environmentId &&
           environmentIds.has(parent.environmentId) &&
           // An archived parent leaves navigation; its task there stays listed on its own.
           get(environmentThreadIndexAtom(parent.environmentId)).get(parent.threadId)?.archivedAt ===

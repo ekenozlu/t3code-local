@@ -647,6 +647,20 @@ const makeLaptop = (
   kept?: Context.Context<Layer.Success<ReturnType<typeof layerLinkingEnvironment>>>,
   /** Runs as each follow attempt here starts, on its follower's fiber. */
   beforeFollow: Effect.Effect<void, Orchestrator.OrchestratorV2Error> = Effect.void,
+  /** Launches, providers and projects here, for a task in another project here. */
+  local: Layer.Layer<
+    | ThreadLaunch.ThreadLaunchService
+    | ProviderRegistry.ProviderRegistry
+    | ProviderAdapterRegistry.ProviderAdapterRegistryV2
+    | ProjectService.ProjectService,
+    never,
+    ThreadManagement.ThreadManagementService
+  > = Layer.mergeAll(
+    Layer.mock(ThreadLaunch.ThreadLaunchService)({}),
+    Layer.mock(ProviderRegistry.ProviderRegistry)({}),
+    Layer.mock(ProviderAdapterRegistry.ProviderAdapterRegistryV2)({}),
+    Layer.mock(ProjectService.ProjectService)({}),
+  ),
 ) =>
   Effect.gen(function* () {
     const linking = kept ?? (yield* layerLinkingEnvironment(laptop).pipe(Layer.build));
@@ -694,6 +708,7 @@ const makeLaptop = (
               // A cold enrichment cache: the project itself reports no identity yet.
               getById: () =>
                 Effect.succeedSome({
+                  title: "App",
                   workspaceRoot: "/home/me/app",
                   repositoryIdentity: null,
                 } as never),
@@ -715,13 +730,10 @@ const makeLaptop = (
       Layer.provide(Layer.mock(PeerLinkRequests.PeerLinkRequests)({})),
       Layer.provide(NodeCrypto.layer),
       Layer.provideMerge(layerThreads),
-      Layer.provide(Layer.mock(ProviderRegistry.ProviderRegistry)({})),
-      Layer.provide(Layer.mock(ProviderAdapterRegistry.ProviderAdapterRegistryV2)({})),
+      Layer.provide(local.pipe(Layer.provide(layerThreads))),
       Layer.provide(Layer.mock(ScheduledTaskService.ScheduledTaskService)({})),
-      Layer.provide(Layer.mock(ProjectService.ProjectService)({})),
       Layer.provide(Layer.mock(ProjectCloneTracker.ProjectCloneTracker)({})),
       Layer.provide(Layer.mock(SecretRequests.SecretRequests)({})),
-      Layer.provide(Layer.mock(ThreadLaunch.ThreadLaunchService)({})),
       Layer.provide(Layer.mock(GitVcsDriver.GitVcsDriver)({})),
       Layer.fresh,
     );
@@ -1574,9 +1586,7 @@ it.effect.each([false, true])(
         yield* Deferred.succeed(thread.finished, undefined);
         expect(yield* taskResult(a, delegated.taskId)).toMatchObject({
           status: "failed",
-          result: ownError
-            ? error
-            : "(The thread in the linked environment ended without a reply.)",
+          result: ownError ? error : "(The task's thread ended without a reply.)",
         });
         expect(yield* Ref.get(thread.waitedFor)).toEqual([boxRunId]);
       }),
@@ -2477,22 +2487,115 @@ it.effect("a task whose thread there has no run ends with its last reply", () =>
   ).pipe(Effect.provide(NodeHttpServer.layerTest)),
 );
 
-it.effect("a local task runs in this thread's project", () =>
+/** Launches here create the thread, and nothing more: no workspace, no run. */
+const layerLocalLaunches = (launched: Ref.Ref<ReadonlyArray<ThreadLaunch.ThreadLaunchInput>>) =>
+  Layer.effect(
+    ThreadLaunch.ThreadLaunchService,
+    Effect.gen(function* () {
+      const threads = yield* ThreadManagement.ThreadManagementService;
+      return ThreadLaunch.ThreadLaunchService.of({
+        launch: (input: ThreadLaunch.ThreadLaunchInput) =>
+          Ref.update(launched, (seen) => [...seen, input]).pipe(
+            Effect.andThen(
+              threads.dispatch({
+                type: "thread.create",
+                commandId: input.commandId,
+                threadId: input.threadId!,
+                projectId: input.projectId,
+                title: input.title,
+                modelSelection: input.modelSelection,
+                runtimeMode: input.runtimeMode,
+                interactionMode: input.interactionMode,
+                branch: null,
+                worktreePath: null,
+                ...(input.delegatedFrom === undefined
+                  ? {}
+                  : { delegatedFrom: input.delegatedFrom }),
+                createdBy: input.createdBy,
+                creationSource: input.creationSource,
+              }),
+            ),
+            Effect.flatMap(() => threads.getThreadProjection(input.threadId!)),
+            Effect.map((projection) => ({ threadId: input.threadId!, projection, resumed: false })),
+            Effect.orDie,
+          ),
+      } as never);
+    }),
+  );
+
+it.effect("a task in another project here runs as that project's thread and wakes the parent", () =>
   Effect.scoped(
     Effect.gen(function* () {
       const offers = yield* SubscriptionRef.make<
         ReadonlyArray<ProviderContinuationRequests.ProviderContinuationRequest>
       >([]);
+      const launched = yield* Ref.make<ReadonlyArray<ThreadLaunch.ThreadLaunchInput>>([]);
       const database = yield* SqlitePersistence.layerMemory.pipe(Layer.build);
-      const a = yield* makeLaptop(database, offers);
+      const otherProject = ProjectId.make("project:other");
+      const laptopCodex: ServerProvider = {
+        ...boxClaude,
+        instanceId,
+        driver,
+        models: [{ slug: "gpt-5.4", name: "GPT-5.4", isCustom: false, capabilities: null }],
+      };
+      const a = yield* makeLaptop(
+        database,
+        offers,
+        undefined,
+        Effect.void,
+        Layer.mergeAll(
+          layerLocalLaunches(launched),
+          Layer.mock(ProviderRegistry.ProviderRegistry)({
+            getProviders: Effect.succeed([laptopCodex]),
+          }),
+          Layer.mock(ProviderAdapterRegistry.ProviderAdapterRegistryV2)({
+            list: () => Effect.succeed([instanceId]),
+          }),
+          Layer.mock(ProjectService.ProjectService)({
+            getById: (id) =>
+              Effect.succeed(
+                id === otherProject
+                  ? Option.some({ id, title: "Other", workspaceRoot: "/home/me/other" } as never)
+                  : Option.none(),
+              ),
+          }),
+        ),
+      );
       yield* seedParent(a);
 
-      const result = yield* a.call("delegate_task", {
-        task: "Run it here.",
-        target: { projectId: "project:elsewhere" },
+      const delegated = yield* a.call("delegate_task", {
+        task: "Bump the version.",
+        target: { projectId: otherProject },
       });
-      expect(result.isError).toBe(true);
-      expect(JSON.stringify(result.content)).toContain("invalid_request");
+      expect(delegated.isError, JSON.stringify(delegated.content)).toBe(false);
+      const { taskId } = delegated.structuredContent as { taskId: NodeId };
+      const [launch] = yield* Ref.get(launched);
+      expect(launch).toMatchObject({
+        projectId: otherProject,
+        modelSelection,
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        createdBy: "agent",
+        delegatedFrom: { environmentId: laptop.environmentId, threadId: parentThreadId },
+        initialMessage: { text: "Bump the version." },
+      });
+      // An ordinary top-level thread in that project, naming its parent.
+      const child = yield* a.projections.getThreadShell(launch!.threadId!);
+      expect(child).toMatchObject({
+        projectId: otherProject,
+        lineage: { parentThreadId: null },
+        delegatedFrom: { threadId: parentThreadId },
+      });
+      // The launch stub starts no run, so the follower finds nothing to wait for.
+      expect(yield* taskResult(a, taskId)).toMatchObject({
+        status: "failed",
+        remoteChild: {
+          environmentId: laptop.environmentId,
+          threadId: launch!.threadId,
+          label: "App",
+        },
+      });
+      expect(yield* a.projections.getOpenRemoteDelegatedTasks).toEqual([]);
     }),
   ).pipe(Effect.provide(NodeHttpServer.layerTest)),
 );

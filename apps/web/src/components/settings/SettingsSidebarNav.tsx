@@ -9,22 +9,22 @@ import {
 } from "react";
 import {
   ArchiveIcon,
-  FlaskConicalIcon,
   BotIcon,
-  createLucideIcon,
   CalendarClockIcon,
   FileDiffIcon,
+  FlaskConicalIcon,
   FolderTreeIcon,
   GitBranchIcon,
   GlobeIcon,
   InfoIcon,
+  KeyRoundIcon,
+  KeyboardIcon,
   MessageSquareTextIcon,
   MessagesSquareIcon,
-  PanelsTopLeftIcon,
-  KeyboardIcon,
-  KeyRoundIcon,
   MicIcon,
   PaletteIcon,
+  PanelsTopLeftIcon,
+  RadarIcon,
   SearchIcon,
   ServerIcon,
   Settings2Icon,
@@ -32,6 +32,7 @@ import {
   SmartphoneIcon,
   WrenchIcon,
   XIcon,
+  createLucideIcon,
 } from "lucide-react";
 import { resolveEventKeys } from "@t3tools/shared/keybindings";
 import { useLocation, useNavigate } from "@tanstack/react-router";
@@ -98,6 +99,7 @@ const SETTINGS_SECTION_ICONS: Readonly<
   "/settings/keybindings": KeyboardIcon,
   "/settings/snap-shot": SnapShotIcon,
   "/settings/providers": BotIcon,
+  "/settings/agents": RadarIcon,
   "/settings/threads": MessagesSquareIcon,
   "/settings/browser": GlobeIcon,
   "/settings/devices": SmartphoneIcon,

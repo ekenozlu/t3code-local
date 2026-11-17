@@ -121,7 +121,7 @@ export const OrchestratorMcpTarget = Schema.Struct({
   projectId: Schema.optional(
     ProjectId.annotate({
       description:
-        "With `environmentId`: its project to run in. Default: the one with this project's repository.",
+        "Project to run in, from `t3_project_list`. Another project here runs the task as a thread in that project. With `environmentId`: default is the one with this project's repository.",
     }),
   ),
 });
@@ -171,6 +171,12 @@ export const OrchestratorMcpDelegateTaskInput = Schema.Struct({
   target: Schema.optional(OrchestratorMcpTarget),
   title: Schema.optional(OrchestratorMcpTitle),
   role: Schema.optional(OrchestratorMcpTaskRole),
+  agent: Schema.optional(
+    TrimmedNonEmptyString.annotate({
+      description:
+        "A saved agent's name from `orchestrator_capabilities` `agents`. Its instructions, model and modes apply; fields you pass win.",
+    }),
+  ),
   isolation: Schema.optional(
     Schema.Literals(["shared", "worktree"]).annotate({
       description:
@@ -678,6 +684,18 @@ export const OrchestratorMcpCapabilitiesResult = Schema.Struct({
   runtimeMode: RuntimeMode,
   interactionMode: ProviderInteractionMode,
   providers: Schema.Array(OrchestratorMcpProviderCapability),
+  /** Saved agents to delegate to by `agent`. Absent from linked environments on older versions. */
+  agents: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        name: Schema.String,
+        description: Schema.String,
+        model: Schema.NullOr(Schema.String),
+      }),
+    ),
+  ),
+  /** Set only for the Command Center's main agent: how it works. */
+  commandCenter: Schema.optional(Schema.String),
   features: Schema.Struct({
     appOwnedSubagents: Schema.Boolean,
     asyncPolling: Schema.Boolean,
