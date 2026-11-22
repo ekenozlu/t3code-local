@@ -24,6 +24,7 @@ import {
   useRef,
   useState,
   type ComponentProps,
+  type ReactNode,
 } from "react";
 import {
   Platform,
@@ -106,6 +107,8 @@ interface HomeScreenProps {
   readonly visible: boolean;
   readonly projects: ReadonlyArray<EnvironmentProject>;
   readonly threads: ReadonlyArray<EnvironmentThreadShell>;
+  /** The Command and Operation Centers, above the thread list. */
+  readonly centerSection: ReactNode;
   readonly pendingTasks: ReadonlyArray<PendingNewTask>;
   readonly catalogState: WorkspaceState;
   readonly savedConnectionsById: Readonly<Record<string, SavedRemoteConnection>>;
@@ -605,6 +608,7 @@ export function HomeScreen(props: HomeScreenProps) {
   };
 
   const hasAnyThreads =
+    props.centerSection != null ||
     props.threads.some((thread) => thread.archivedAt === null) ||
     props.pendingTasks.length > 0 ||
     threadListV2Layout.settledCount > 0;
@@ -688,6 +692,7 @@ export function HomeScreen(props: HomeScreenProps) {
           onProjectChange={props.onProjectChange}
         />
       ) : null}
+      {props.centerSection}
     </>
   );
 

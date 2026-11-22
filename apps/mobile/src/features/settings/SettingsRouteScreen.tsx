@@ -31,6 +31,7 @@ import { SettingsScreen } from "./components/SettingsScreen";
 import type { SettingsPageTarget } from "./components/settings-page-targets";
 import { useSettingsEnvironmentMenu } from "./components/SettingsEnvironmentFilterHeader";
 import { useSettingsEnvironmentFilter } from "./settings-environment-filter";
+import { openSettings } from "./settings-navigation";
 import { filterSettingsSections } from "./settings-search";
 import { usePaneRole } from "../../components/ui/Pane";
 import { I18nProvider, useGT, useLanguagePreference } from "../../i18n/I18nProvider";
@@ -241,6 +242,7 @@ function SettingsList(props: { readonly connections: readonly SettingsListRow[] 
 
 function useSettingsIndexSections(): SettingsListSection[] {
   const gt = useGT();
+  const navigation = useNavigation();
   const language = useLanguagePreference();
   const { selectedTargets, projectGroups, selectedProjectKey } = useSettingsEnvironmentFilter();
   const noServerTargets = selectedTargets.length === 0;
@@ -291,6 +293,14 @@ function useSettingsIndexSections(): SettingsListSection[] {
         serverPage("SettingsProviderAccounts", "person.crop.circle", gt("Providers")),
         serverPage("SettingsThreads", "text.bubble", gt("Threads")),
         page("SettingsScheduledTasks", "clock", gt("Scheduled tasks")),
+        serverPage("SettingsAgents", "robot", gt("Command Center")),
+        {
+          id: "SettingsOperations",
+          icon: "chart.bar.xaxis",
+          label: gt("Operations"),
+          disabled: noServerTargets,
+          onPress: () => openSettings(navigation, "SettingsOperations"),
+        },
       ],
     },
     {

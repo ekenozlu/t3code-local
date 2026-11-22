@@ -20,7 +20,11 @@ import { ScrollArea } from "../ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Toggle, ToggleGroup } from "../ui/toggle-group";
 import { WorkspacePageContainer } from "../WorkspacePageContainer";
-import { formatDuration, formatTokens, jobsNeedingAttention } from "./operationsDashboard.logic";
+import {
+  formatDuration,
+  formatTokens,
+  jobsNeedingAttention,
+} from "@t3tools/client-runtime/operations-dashboard";
 
 const PERIODS = [7, 30, 90] as const;
 

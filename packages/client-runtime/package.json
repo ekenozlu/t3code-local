@@ -127,6 +127,10 @@
       "types": "./src/rpc/index.ts",
       "default": "./src/rpc/index.ts"
     },
+    "./operations-dashboard": {
+      "types": "./src/operationsDashboard.ts",
+      "default": "./src/operationsDashboard.ts"
+    },
     "./operations": {
       "types": "./src/operations/index.ts",
       "default": "./src/operations/index.ts"

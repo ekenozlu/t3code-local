@@ -59,6 +59,7 @@ import { useAppearancePreferences } from "../settings/appearance/AppearancePrefe
 import { ThreadSearchMatchExcerpt } from "../threads/thread-search-match";
 import { pickTriageEnvironment } from "../triage/triageTarget";
 import { useStartTriage } from "../triage/useStartTriage";
+import { useOpenCenter } from "../command-center/useOpenCenter";
 import { useNewTaskFlow } from "../threads/new-task-flow-provider";
 import { useActiveNewTask } from "../../state/active-new-task";
 import {
@@ -283,6 +284,12 @@ export function CommandPalette(props: {
     useAtomValue(serverEnvironment.prepareTriage.permissionAtom(triageEnvironmentId)) &&
     triageEnvironmentId !== null &&
     serverConfigs.get(triageEnvironmentId)?.environment.capabilities.triage === true;
+  const openCenter = useOpenCenter();
+  const centerEnvironmentId =
+    activeThreadRef?.environmentId ?? draftEnvironmentId ?? searchEnvironmentIds[0] ?? null;
+  const canOpenCenters = useAtomValue(
+    serverEnvironment.ensureCommandCenterThread.permissionAtom(centerEnvironmentId),
+  );
   const contentMatchByKey = new Map(
     search.matches
       .filter((match) => match.source === "user" || match.source === "assistant")
@@ -357,6 +364,45 @@ export function CommandPalette(props: {
         searchTerms: ["triage", "bug", "issue", "report", "broken", "debug", "help", "support"],
         run: () => void startTriage(triageEnvironmentId),
       });
+    }
+    if (canOpenCenters && centerEnvironmentId !== null) {
+      actions.push(
+        {
+          key: "commandCenter",
+          kind: "action",
+          title: "Open Command Center",
+          searchTerms: ["main agent", "delegate", "agents", "command center"],
+          run: () => void openCenter(centerEnvironmentId, { center: "command" }),
+        },
+        {
+          key: "newCommandCenterThread",
+          kind: "action",
+          title: "New Command Center thread",
+          searchTerms: ["main agent", "delegate", "command center"],
+          run: () => void openCenter(centerEnvironmentId, { center: "command", startNew: true }),
+        },
+        {
+          key: "operationCenter",
+          kind: "action",
+          title: "Open Operation Center",
+          searchTerms: ["review jobs", "tune agents", "operations"],
+          run: () => void openCenter(centerEnvironmentId, { center: "operations" }),
+        },
+        {
+          key: "operationsDashboard",
+          kind: "action",
+          title: "Operations dashboard",
+          searchTerms: ["jobs", "metrics", "operations"],
+          run: () => openSettings(navigation, "SettingsOperations"),
+        },
+        {
+          key: "agents",
+          kind: "action",
+          title: "Saved agents",
+          searchTerms: ["agents", "command center", "guidance"],
+          run: () => openSettings(navigation, "SettingsAgents"),
+        },
+      );
     }
     const projectByKey = new Map(
       projects.map((project) => [scopedProjectKey(project.environmentId, project.id), project]),
@@ -466,7 +512,10 @@ export function CommandPalette(props: {
     activeThreadRef,
     environments.length,
     canTriage,
+    canOpenCenters,
+    centerEnvironmentId,
     navigation,
+    openCenter,
     projects,
     runCommand,
     savedConnectionsById,

@@ -1,7 +1,7 @@
 import { type OperationsJob, summarizeOperationsJobs, ThreadId } from "@t3tools/contracts";
 import { expect, it } from "vite-plus/test";
 
-import { formatDuration, jobsNeedingAttention } from "./operationsDashboard.logic";
+import { formatDuration, jobsNeedingAttention } from "./operationsDashboard.ts";
 
 const job = (title: string, fields: Partial<OperationsJob>): OperationsJob => ({
   commandCenterThreadId: ThreadId.make("thread:cc"),

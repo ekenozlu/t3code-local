@@ -11,7 +11,12 @@ import { Platform } from "react-native";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import { pickableProjectGroups } from "@t3tools/client-runtime/state/project-grouping";
 
-import { useProjects } from "../../state/entities";
+import { useAtomValue } from "@effect/atom-react";
+
+import { useProjects, useServerConfigs } from "../../state/entities";
+import { serverEnvironment } from "../../state/server";
+import { CenterHomeSection } from "../command-center/CenterHomeSection";
+import { partitionCenterThreads } from "../command-center/centers";
 import { steadyNavigationThreadShellsAtom } from "../../state/threads";
 import { useLaunchingThreads, usePendingNewTasks } from "../../state/use-pending-new-tasks";
 import { useWorkspaceState } from "../../state/workspace";
@@ -47,8 +52,13 @@ export function HomeRouteScreen() {
   const projects = useProjects();
   // Stop rebuilding the streaming thread list while Thread covers Home.
   const visible = useHomeRouteVisible();
-  const threads = useLaunchingThreads(
+  const allThreads = useLaunchingThreads(
     useAtomValueWhileVisible(steadyNavigationThreadShellsAtom, visible),
+  );
+  const serverConfigs = useServerConfigs();
+  const { listed: threads, centers } = useMemo(
+    () => partitionCenterThreads(allThreads, serverConfigs),
+    [allThreads, serverConfigs],
   );
   const { environments: workspaceEnvironments, state: catalogState } = useWorkspaceState();
   const { savedConnectionsById } = useSavedRemoteConnections();
@@ -146,6 +156,34 @@ export function HomeRouteScreen() {
   );
   const selectedProjectKey =
     resolveHomeProjectFilterScope(projectScopes, projects, listOptions)?.key ?? null;
+  const connectedEnvironments = environments.filter(
+    (environment) => environment.connectionState === "connected",
+  );
+  const centerEnvironment =
+    selectedEnvironmentId === null
+      ? (connectedEnvironments[0] ?? null)
+      : (connectedEnvironments.find(
+          (environment) => environment.environmentId === selectedEnvironmentId,
+        ) ?? null);
+  const canOpenCenters = useAtomValue(
+    serverEnvironment.ensureCommandCenterThread.permissionAtom(
+      centerEnvironment?.environmentId ?? null,
+    ),
+  );
+  const centerSection =
+    centerEnvironment !== null && canOpenCenters && searchQuery.trim() === "" ? (
+      <CenterHomeSection
+        environmentId={centerEnvironment.environmentId}
+        environmentLabel={connectedEnvironments.length > 1 ? centerEnvironment.label : null}
+        threads={allThreads}
+        centers={centers}
+        selectedThreadKey={nativePrimaryColumn?.selectedThreadKey ?? null}
+        onSelectThread={handleSelectThread}
+        onSettleThread={settleThread}
+        onUnsettleThread={unsettleThread}
+        onDeleteThread={confirmDeleteThread}
+      />
+    ) : null;
 
   if (layout.usesSplitView && !nativePrimaryColumn) {
     return (
@@ -184,6 +222,7 @@ export function HomeRouteScreen() {
 
         <HomeScreen
           catalogState={catalogState}
+          centerSection={centerSection}
           environments={environments}
           onAddConnection={() => openSettings(navigation, "SettingsEnvironmentNew")}
           onArchiveThread={archiveThread}

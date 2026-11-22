@@ -30,6 +30,10 @@ job and its status. When a job finishes, the main agent wakes up and reports bac
   end of the list, where you can un-settle them; clicking the Command Center skips them. Archive one
   to take it off the list; unarchive it to bring it back.
 - Each server has its own Command Center. It uses the agents saved on that server.
+- On mobile, both centers sit at the top of the thread list for the environment you filter to,
+  or the first connected one. Tap a center to open it, **+** to start another thread, and
+  long-press a thread to settle or delete it. Saved agents and the Operations dashboard are in
+  Settings.
 
 ## Operation Center
 

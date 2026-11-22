@@ -96,6 +96,11 @@ import { SettingsAuthRouteScreen } from "./features/settings/SettingsAuthRouteSc
 import { SettingsEnvironmentDetailRouteScreen } from "./features/settings/SettingsEnvironmentDetailRouteScreen";
 import { SettingsEnvironmentsRouteScreen } from "./features/settings/SettingsEnvironmentsRouteScreen";
 import { SettingsFollowUpRouteScreen } from "./features/settings/SettingsFollowUpRouteScreen";
+import {
+  SettingsAgentEditRouteScreen,
+  SettingsAgentsRouteScreen,
+} from "./features/command-center/SettingsAgentsRouteScreen";
+import { SettingsOperationsRouteScreen } from "./features/command-center/SettingsOperationsRouteScreen";
 import { SettingsLanguageRouteScreen } from "./features/settings/SettingsLanguageRouteScreen";
 import {
   SettingsEnvironmentMaintenanceRouteScreen,
@@ -286,6 +291,20 @@ const SETTINGS_SCREENS = {
     screen: SettingsFollowUpRouteScreen,
     linking: "settings/follow-ups",
     options: settingsPage("Chat"),
+  }),
+  SettingsAgents: createNativeStackScreen({
+    screen: SettingsAgentsRouteScreen,
+    linking: "settings/agents",
+    options: settingsPage("Command Center"),
+  }),
+  SettingsAgentEdit: createNativeStackScreen({
+    screen: SettingsAgentEditRouteScreen,
+    options: settingsPage("Agent"),
+  }),
+  SettingsOperations: createNativeStackScreen({
+    screen: SettingsOperationsRouteScreen,
+    linking: "settings/operations",
+    options: settingsPage("Operations"),
   }),
   SettingsScheduledTasks: createNativeStackScreen({
     screen: SettingsScheduledTasksRouteScreen,
