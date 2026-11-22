@@ -37,7 +37,6 @@ struct ConfigView: View {
       }
 
       Section("Build") {
-        TextField("Version", text: field(\.version), prompt: Text("From app.config.ts"))
         Picker("Xcode", selection: field(\.developerDir)) {
           Text("xcode-select default").tag("")
           ForEach(xcodeOptions(config), id: \.self) { path in

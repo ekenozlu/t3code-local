@@ -97,7 +97,8 @@ struct PipelineView: View {
   let monitor: Monitor
   let pipeline: Pipeline
   let openSettings: () -> Void
-  @State private var ref = "main"
+  @State private var tag: String?
+  @State private var showingNewTag = false
 
   private var snapshot: PipelineSnapshot { monitor.snapshots[pipeline.id] ?? PipelineSnapshot() }
   private var busy: Bool {
@@ -123,7 +124,7 @@ struct PipelineView: View {
     .padding(20)
     .navigationTitle(pipeline.title)
     .task(id: pipeline.id) {
-      if pipeline.id == "testflight", monitor.branches == nil { monitor.loadBranches() }
+      if pipeline.id == "testflight", monitor.tags == nil { monitor.loadRefs() }
     }
   }
 
@@ -176,10 +177,10 @@ struct PipelineView: View {
     }
   }
 
-  /// The fetched branches, keeping the current pick listed while they load.
-  private var branchOptions: [String] {
-    let branches = monitor.branches ?? []
-    return branches.contains(ref) ? branches : [ref] + branches
+  private var mobileTags: [String] { MobileVersion.mobileTags(monitor.tags ?? []) }
+  /// The picked tag, else the newest.
+  private var selectedTag: String? {
+    tag.flatMap { mobileTags.contains($0) ? $0 : nil } ?? mobileTags.first
   }
 
   private func row(_ label: String, _ value: String?) -> some View {
@@ -197,20 +198,28 @@ struct PipelineView: View {
         Button("Install") { monitor.request(pipeline, "install") }
           .disabled(busy || snapshot.builtTag == nil || snapshot.builtTag == snapshot.installedTag)
       } else {
-        Picker("Branch", selection: $ref) {
-          ForEach(branchOptions, id: \.self) { Text($0).tag($0) }
+        Picker("Tag", selection: $tag) {
+          if mobileTags.isEmpty { Text("No mobile tags yet").tag(String?.none) }
+          ForEach(mobileTags, id: \.self) { Text($0).tag(Optional($0)) }
         }
-        .frame(width: 260)
+        .frame(width: 240)
         Button {
-          monitor.loadBranches()
+          monitor.loadRefs()
         } label: {
           Image(systemName: "arrow.clockwise")
         }
-        .help("Reload branches from GitHub")
-        .disabled(monitor.loadingBranches)
-        Button("Release to TestFlight") { monitor.request(pipeline, ref) }
-          .buttonStyle(.borderedProminent)
-          .disabled(busy || !snapshot.missingConfig.isEmpty)
+        .help("Reload tags and branches from GitHub")
+        .disabled(monitor.loadingRefs)
+        Button("New tag…") { showingNewTag = true }
+          .disabled(monitor.tags == nil)
+        Button("Release to TestFlight") {
+          if let selected = selectedTag { monitor.request(pipeline, selected) }
+        }
+        .buttonStyle(.borderedProminent)
+        .disabled(busy || !snapshot.missingConfig.isEmpty || selectedTag == nil)
+        .sheet(isPresented: $showingNewTag) {
+          NewTagSheet(monitor: monitor) { created in tag = created }
+        }
         Button("App Store Connect") {
           NSWorkspace.shared.open(URL(string: "https://appstoreconnect.apple.com/apps")!)
         }
@@ -236,6 +245,60 @@ struct LogView: View {
       }
       .background(.background.secondary, in: RoundedRectangle(cornerRadius: 8))
       .onChange(of: text, initial: true) { proxy.scrollTo("end", anchor: .bottom) }
+    }
+  }
+}
+
+/// Tags a branch's tip on origin as the next mobile version, so a release can pick it.
+struct NewTagSheet: View {
+  let monitor: Monitor
+  let onCreated: (String) -> Void
+  @Environment(\.dismiss) private var dismiss
+  @State private var branch = "main"
+  @State private var version = ""
+  @State private var error: String?
+
+  private var trimmed: String { version.trimmingCharacters(in: .whitespaces) }
+  private var exists: Bool { (monitor.tags ?? []).contains(MobileVersion.tagPrefix + trimmed) }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 16) {
+      Text("New mobile tag").font(.title2.weight(.semibold))
+      Form {
+        Picker("Branch", selection: $branch) {
+          ForEach(monitor.branches ?? ["main"], id: \.self) { Text($0).tag($0) }
+        }
+        TextField("Version", text: $version)
+        LabeledContent("Tag", value: MobileVersion.tagPrefix + trimmed)
+      }
+      if exists {
+        Label("That tag already exists.", systemImage: "exclamationmark.triangle.fill")
+          .foregroundStyle(.orange)
+      }
+      if let error {
+        Text(error).foregroundStyle(.red).textSelection(.enabled)
+      }
+      HStack {
+        Spacer()
+        Button("Cancel") { dismiss() }
+        Button("Create and push") {
+          monitor.createMobileTag(branch: branch, version: trimmed) { failure in
+            if let failure {
+              error = failure
+            } else {
+              onCreated(MobileVersion.tagPrefix + trimmed)
+              dismiss()
+            }
+          }
+        }
+        .buttonStyle(.borderedProminent)
+        .disabled(MobileVersion.parse(trimmed) == nil || exists || monitor.creatingTag)
+      }
+    }
+    .padding(20)
+    .frame(width: 420)
+    .onAppear {
+      version = MobileVersion.next(tags: monitor.tags ?? [])
     }
   }
 }

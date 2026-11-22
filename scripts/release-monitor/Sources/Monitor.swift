@@ -8,9 +8,11 @@ final class Monitor {
   let pipelines: [Pipeline] = [.desktop, .testflight]
   var snapshots: [String: PipelineSnapshot] = [:]
   var lastError: String?
-  /// Branches on the repo's origin, newest fetch first; nil until the first fetch lands.
+  /// Branches and tags on the repo's origin; nil until the first listing lands.
   var branches: [String]?
-  var loadingBranches = false
+  var tags: [String]?
+  var loadingRefs = false
+  var creatingTag = false
   /// The checkout the app was built from, for installing agents and running git.
   let repoPath: String? = Bundle.main.object(forInfoDictionaryKey: "T3RepoPath") as? String
 
@@ -50,27 +52,62 @@ final class Monitor {
     }
   }
 
-  func loadBranches() {
-    guard let repoPath, !loadingBranches else { return }
-    loadingBranches = true
+  func loadRefs() {
+    guard let repoPath, !loadingRefs else { return }
+    loadingRefs = true
     Task.detached(priority: .userInitiated) {
-      let result = Shell.run("/usr/bin/git", ["-C", repoPath, "ls-remote", "--heads", "origin"])
-      let names = result.output.split(separator: "\n").compactMap { line -> String? in
-        guard let ref = line.split(separator: "\t").last, ref.hasPrefix("refs/heads/") else {
-          return nil
+      let result = Shell.run(
+        "/usr/bin/git", ["-C", repoPath, "ls-remote", "--heads", "--tags", "origin"])
+      var branches: [String] = []
+      var tags: [String] = []
+      for line in result.output.split(separator: "\n") {
+        guard let ref = line.split(separator: "\t").last.map(String.init) else { continue }
+        if ref.hasPrefix("refs/heads/") {
+          branches.append(String(ref.dropFirst("refs/heads/".count)))
+        } else if ref.hasPrefix("refs/tags/"), !ref.hasSuffix("^{}") {
+          tags.append(String(ref.dropFirst("refs/tags/".count)))
         }
-        return String(ref.dropFirst("refs/heads/".count))
       }
       await MainActor.run {
-        self.loadingBranches = false
-        if result.status == 0 {
-          self.branches = names.sorted { left, right in
-            // main first, then alphabetical.
-            left == "main" ? right != "main" : (right != "main" && left < right)
-          }
-        } else {
-          self.lastError = "Could not list branches: \(result.output)"
+        self.loadingRefs = false
+        guard result.status == 0 else {
+          self.lastError = "Could not list branches and tags: \(result.output)"
+          return
         }
+        self.branches = branches.sorted { left, right in
+          left == "main" ? right != "main" : (right != "main" && left < right)
+        }
+        self.tags = tags
+      }
+    }
+  }
+
+  /// Tags the tip of `branch` on origin as mobile-v`version` and pushes only that tag.
+  func createMobileTag(branch: String, version: String, onDone: @escaping @MainActor (String?) -> Void) {
+    guard let repoPath, !creatingTag else { return }
+    creatingTag = true
+    let tag = MobileVersion.tagPrefix + version
+    Task.detached(priority: .userInitiated) {
+      let git = { (arguments: [String]) in Shell.run("/usr/bin/git", ["-C", repoPath] + arguments) }
+      var failure: String?
+      let fetch = git(["fetch", "--quiet", "origin", "refs/heads/\(branch):refs/remotes/origin/\(branch)"])
+      if fetch.status != 0 { failure = fetch.output }
+      if failure == nil {
+        let created = git(["tag", "-a", tag, "-m", "Mobile \(version) from \(branch)", "origin/\(branch)"])
+        if created.status != 0 { failure = created.output }
+      }
+      if failure == nil {
+        let pushed = git(["push", "--quiet", "origin", "refs/tags/\(tag)"])
+        if pushed.status != 0 {
+          // Keep local and remote tags in step when the push fails.
+          _ = git(["tag", "-d", tag])
+          failure = pushed.output
+        }
+      }
+      await MainActor.run {
+        self.creatingTag = false
+        if failure == nil { self.tags = (self.tags ?? []) + [tag] }
+        onDone(failure.map { "Could not create \(tag): \($0)" })
       }
     }
   }

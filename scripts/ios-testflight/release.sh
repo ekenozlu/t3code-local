@@ -2,6 +2,8 @@
 # Builds this fork's iOS app at a git ref and uploads it to TestFlight.
 # Run by the launchd agent from install.sh when the Release Monitor writes a ref to the request
 # file; safe to run by hand: release.sh [ref]   (default: main)
+# A mobile-vX.Y.Z tag sets the version to X.Y.Z; any other ref uses T3CODE_MOBILE_VERSION or the
+# version in app.config.ts.
 # Signing and upload use the App Store Connect API key whose ID is in config.env; its .p8 file
 # is found in ~/.appstoreconnect/private_keys by that ID (Apple names it AuthKey_<id>.p8).
 set -Eeuo pipefail
@@ -91,7 +93,11 @@ fi
 commit="$(git rev-parse --short HEAD)"
 # Each upload needs a higher build number than every earlier one of the same version.
 build="$(date +%Y%m%d%H%M)"
-version="${T3CODE_MOBILE_VERSION:-$(sed -nE 's/.*T3CODE_MOBILE_VERSION \?\? "([^"]+)".*/\1/p' apps/mobile/app.config.ts)}"
+if [[ "$REF" =~ ^mobile-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+  version="${BASH_REMATCH[1]}"
+else
+  version="${T3CODE_MOBILE_VERSION:-$(sed -nE 's/.*T3CODE_MOBILE_VERSION \?\? "([^"]+)".*/\1/p' apps/mobile/app.config.ts)}"
+fi
 
 status installing
 vp i

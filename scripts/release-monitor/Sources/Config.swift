@@ -85,3 +85,33 @@ struct TestFlightConfig: Equatable, Sendable {
       .map { "/Applications/\($0)/Contents/Developer" }
   }
 }
+
+/// Mobile releases are tagged mobile-vX.Y.Z; the tag sets the version TestFlight shows.
+enum MobileVersion {
+  static let tagPrefix = "mobile-v"
+
+  static func parse(_ value: String) -> [Int]? {
+    let parts = value.split(separator: ".").map { Int($0) }
+    guard parts.count == 3, parts.allSatisfy({ $0 != nil }) else { return nil }
+    return parts.compactMap { $0 }
+  }
+
+  /// Mobile tags, newest version first.
+  static func mobileTags(_ tags: [String]) -> [String] {
+    tags.filter { $0.hasPrefix(tagPrefix) && parse(String($0.dropFirst(tagPrefix.count))) != nil }
+      .sorted {
+        parse(String($1.dropFirst(tagPrefix.count)))!
+          .lexicographicallyPrecedes(parse(String($0.dropFirst(tagPrefix.count)))!)
+      }
+  }
+
+  /// The next patch after the newest mobile tag; the newest desktop vX.Y.Z when there is none.
+  static func next(tags: [String]) -> String {
+    if let latest = mobileTags(tags).first, let parts = parse(String(latest.dropFirst(tagPrefix.count))) {
+      return "\(parts[0]).\(parts[1]).\(parts[2] + 1)"
+    }
+    let desktop = tags.filter { $0.hasPrefix("v") }.compactMap { parse(String($0.dropFirst())) }
+    guard let newest = desktop.max(by: { $0.lexicographicallyPrecedes($1) }) else { return "0.1.0" }
+    return newest.map(String.init).joined(separator: ".")
+  }
+}
