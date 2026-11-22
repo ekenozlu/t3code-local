@@ -23,6 +23,24 @@ mkdir -p "$STATE_DIR" "$(dirname "$PLIST")"
 cp "$(dirname "$0")/updater.sh" "$STATE_DIR/updater.sh"
 chmod +x "$STATE_DIR/updater.sh"
 
+# Release Monitor's run-history helper is optional: RELEASE_MONITOR_RUNNER, else the installed app.
+# Without it the runner still works; it just records no history.
+helper=""
+for candidate in "${RELEASE_MONITOR_RUNNER:-}" \
+  "$HOME/Applications/Release Monitor.app/Contents/Resources/release-monitor-run.sh" \
+  "/Applications/Release Monitor.app/Contents/Resources/release-monitor-run.sh"; do
+  if [[ -n "$candidate" && -f "$candidate" ]]; then
+    helper="$candidate"
+    break
+  fi
+done
+if [[ -n "$helper" ]]; then
+  cp "$helper" "$STATE_DIR/rm-run.sh"
+  echo "Recording run history with $helper"
+else
+  echo "Release Monitor's run-history helper was not found; runs are not recorded."
+fi
+
 cat >"$PLIST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
