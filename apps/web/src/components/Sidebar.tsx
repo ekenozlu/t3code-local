@@ -105,6 +105,11 @@ import { SidebarFolderDrop } from "./sidebar/SidebarFolderDrop";
 import { SidebarProjectFolderMore } from "./sidebar/SidebarProjectFolderMore";
 import { SidebarGroupingMenu } from "./sidebar/SidebarGroupingMenu";
 import {
+  pageProjectThreads,
+  PROJECT_THREAD_PAGE_SIZE,
+  sortThreadsByRecentActivity,
+} from "@t3tools/client-runtime/state/project-thread-paging";
+import {
   pickableProjectGroups,
   selectProjectGroupingSettings,
 } from "@t3tools/client-runtime/state/project-grouping";
@@ -179,10 +184,7 @@ import {
   applySidebarThreadDrop,
   filterSidebarV2VisibleThreads,
   groupSidebarThreadsByProject,
-  pageSidebarProjectFolder,
-  SIDEBAR_PROJECT_PAGE_SIZE,
   sidebarFolderExpansionKeys,
-  sortThreadsByRecentActivity,
   buildBulkTitleRegenerationContextMenuItem,
   buildBulkUnpinContextMenuItem,
   deleteSelectedThreadEntries,
@@ -556,13 +558,13 @@ function useSidebarThreads(input: {
               sidebarFolderExpansionKeys(folder.group),
             );
             const shownCount =
-              projectShownCounts.get(folder.group.projectKey) ?? SIDEBAR_PROJECT_PAGE_SIZE;
+              projectShownCounts.get(folder.group.projectKey) ?? PROJECT_THREAD_PAGE_SIZE;
             return {
               group: folder.group,
               collapsed,
               threads: collapsed
                 ? routeThreadOnly(folder.threads, routeRowThreadKey)
-                : pageSidebarProjectFolder({
+                : pageProjectThreads({
                     threads: folder.threads,
                     shownCount,
                     routeThreadKey: routeRowThreadKey,
@@ -650,7 +652,7 @@ function useSidebarThreads(input: {
       setProjectShownCounts((current) =>
         new Map(current).set(
           group.projectKey,
-          (current.get(group.projectKey) ?? SIDEBAR_PROJECT_PAGE_SIZE) + SIDEBAR_PROJECT_PAGE_SIZE,
+          (current.get(group.projectKey) ?? PROJECT_THREAD_PAGE_SIZE) + PROJECT_THREAD_PAGE_SIZE,
         ),
       ),
     renderedSettledThreads,

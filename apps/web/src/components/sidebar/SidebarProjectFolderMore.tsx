@@ -1,11 +1,14 @@
 import { scopedThreadKey, scopeThreadRef } from "@t3tools/client-runtime/environment";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
+import {
+  projectThreadsMoreCount,
+  projectThreadsWantedSettled,
+} from "@t3tools/client-runtime/state/project-thread-paging";
 import type { EnvironmentId, ProjectId } from "@t3tools/contracts";
 import { ChevronDownIcon } from "lucide-react";
 
 import type { SidebarProjectSnapshot } from "../../sidebarProjectGrouping";
 import { useOlderSettledShelf, useOlderSettledShelfGrowth } from "../../state/olderSettledShelf";
-import { sidebarProjectFolderMoreCount, sidebarProjectFolderWantedSettled } from "../Sidebar.logic";
 import { sidebarFolderRowId } from "./SidebarProjectFolderHeader";
 
 function folderScopes(group: SidebarProjectSnapshot) {
@@ -41,14 +44,14 @@ export function SidebarProjectFolderMore(props: {
   const shelf = useOlderSettledShelf({
     scopes: folderScopes(group),
     expanded: true,
-    visibleCount: sidebarProjectFolderWantedSettled({
+    visibleCount: projectThreadsWantedSettled({
       loadedCount: loadedThreads.length,
       loadedSettledCount: loadedSettled.length,
       shownCount,
     }),
   });
   useOlderSettledShelfGrowth(shelf, loadedSettled.filter(shelf.isListed));
-  const moreCount = sidebarProjectFolderMoreCount({
+  const moreCount = projectThreadsMoreCount({
     loadedCount: loadedThreads.length,
     unloadedCount: shelf.unloadedCount(loadedThreads),
     shownCount,

@@ -38,6 +38,7 @@ import { useSelectWorkspaceDetail } from "../layout/workspace/useSelectWorkspace
 import { WorkspaceListEmptyDetail } from "../layout/workspace/WorkspaceListEmptyDetail";
 import { WorkspaceListHeader } from "../layout/workspace/WorkspaceListHeader";
 import { buildHomeListFilterMenuItems } from "./home-list-filter-menu";
+import { useThreadListV2ShelfPreferences } from "../threads/use-thread-list-v2-shelf-preferences";
 
 export function HomeRouteScreen() {
   const nativePrimaryColumn = use(NativePrimaryColumnContext);
@@ -126,6 +127,7 @@ export function HomeRouteScreen() {
     setSelectedEnvironmentId,
     setSelectedProjectKey,
   } = useHomeListOptions(availableEnvironmentIds);
+  const { groupByProject, setThreadListGrouping } = useThreadListV2ShelfPreferences();
   const selectedEnvironmentId = listOptions.selectedEnvironmentId;
   const projectScopes = useMemo(
     () =>
@@ -178,6 +180,8 @@ export function HomeRouteScreen() {
               selectedProjectKey,
               onEnvironmentChange: setSelectedEnvironmentId,
               onProjectChange: setSelectedProjectKey,
+              grouping: groupByProject ? "project" : "status",
+              onGroupingChange: setThreadListGrouping,
             }),
           }}
         />

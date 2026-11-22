@@ -160,6 +160,13 @@ Pinned threads stay above the folders, and Snoozed and Settled stay below them. 
 can drag a thread onto the composer to mention it, but not within the sidebar, and the Working
 section is off. Each device keeps its own choice.
 
+To see every thread by project instead of by status, pick **By project** from the grouping
+button in the sidebar header on web and desktop, or from **Group threads** in the thread list's
+filter menu on iOS and Android. Each project lists all its threads, including snoozed and settled
+ones, most recent first, five at a time. **See more** shows the next five and loads older settled
+threads from the server when needed. Pick **By status** to return to the Pinned, Working, Snoozed
+and Settled sections. Searching lists matches the same way in both views.
+
 ## Settle finished work
 
 Choose **Settle thread** from its menu to move finished work out of the active list
