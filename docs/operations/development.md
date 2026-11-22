@@ -197,10 +197,9 @@ changed files, `knip:check` when code or a manifest changes, the generated Graph
 of the affected packages and their dependents, and the test files beside the changed files. It also
 runs the checks that read other files: the agent context budget when the server is affected, and
 React Compiler coverage for only the changed web and mobile files. It maps
-files to packages with [ci-changes.cjs](../../.github/scripts/ci-changes.cjs), as CI does. It
+files to packages with [ci-changes.cjs](../../.github/scripts/ci-changes.cjs). It
 compares against the closest merge base with any remote's `main`, so a fork whose `main` lags
-upstream still compares against upstream, or with a ref you pass. CI still runs the full
-test suites and the jobs the summary lists, so a local pass does not promise a green CI run.
+upstream still compares against upstream, or with a ref you pass.
 
 The steps run side by side, as many at once as the machine allows: one per two cores and per 6 GiB
 of available memory. On a large machine a run takes about as long as its slowest step, usually
@@ -229,10 +228,9 @@ refactors built in. Only `apps/marketing` installs `typescript`, for Astro. VS C
 extension starts the same checker through `.vscode/tsdk/tsgo` (`js/ts.tsdk.path`), a POSIX
 script, so on Windows open the workspace through WSL.
 
-Use `vp run lint:mobile` for native mobile changes. CI owns the full suite; see
-[ci.yml](../../.github/workflows/ci.yml) for its current jobs.
-The [manual Windows lane](../../.github/workflows/windows-tests.yml) is available for focused
-Windows investigation while that suite is not a required gate.
+Use `vp run lint:mobile` for native mobile changes. This fork's [ci.yml](../../.github/workflows/ci.yml)
+runs one job (format, lint, typecheck, and unit tests outside the server and web browser suites),
+so run the server and browser tests that cover your change locally.
 
 ### Unused code
 
