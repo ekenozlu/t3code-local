@@ -547,6 +547,9 @@ export const ClientSettingsSchema = Schema.Struct({
   sidebarThreadGrouping: SidebarThreadGrouping.pipe(
     Schema.withDecodingDefault(Effect.succeed("status" as const)),
   ),
+  // Desktop: a menu bar item with each provider's subscription usage.
+  menuBarUsageEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
+  menuBarUsageShowPercent: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
   sidebarProjectGroupingMode: SidebarProjectGroupingMode.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_SIDEBAR_PROJECT_GROUPING_MODE)),
   ),
@@ -2116,6 +2119,8 @@ export const ClientSettingsPatch = Schema.Struct({
   threadDetailsItems: Schema.optionalKey(Schema.Record(Schema.String, Schema.Boolean)),
   sidebarWorkingShelfEnabled: Schema.optionalKey(Schema.Boolean),
   sidebarThreadGrouping: Schema.optionalKey(SidebarThreadGrouping),
+  menuBarUsageEnabled: Schema.optionalKey(Schema.Boolean),
+  menuBarUsageShowPercent: Schema.optionalKey(Schema.Boolean),
   sidebarProjectGroupingMode: Schema.optionalKey(SidebarProjectGroupingMode),
   sidebarProjectGroupingOverrides: Schema.optionalKey(
     Schema.Record(TrimmedNonEmptyString, SidebarProjectGroupingMode),

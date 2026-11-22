@@ -49,6 +49,7 @@ import { useUiStateStore } from "../uiStateStore";
 import { configureClientTracing } from "../observability/clientTracing";
 import { resolveInitialServerAuthGateState } from "../environments/primary";
 import { GUEST_PAGE_PATH } from "../guestPage";
+import { MENU_BAR_USAGE_PATH } from "../components/menubar/menuBarUsageTray";
 import { hasHostedPairingRequest, isHostedStaticApp } from "../hostedPairing";
 import { useHostedPromptLinkLanding } from "../components/promptLinks/HostedPromptLinkLanding";
 import { isLocalEnvironmentDisabled } from "../localEnvironment";
@@ -159,7 +160,8 @@ function RootRouteBranch() {
     pathname === "/pair" ||
     pathname === "/connect" ||
     pathname === "/connect-agent" ||
-    pathname === "/approve-agent"
+    pathname === "/approve-agent" ||
+    pathname === MENU_BAR_USAGE_PATH
   ) {
     return <Outlet />;
   }

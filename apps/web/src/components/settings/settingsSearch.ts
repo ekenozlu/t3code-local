@@ -469,6 +469,14 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["hide fold running monitoring threads inbox sidebar shelf"],
   },
   {
+    id: "menu-bar-usage",
+    title: "Usage in the menu bar",
+    to: "/settings/general",
+    desktopOnly: true,
+    macOnly: true,
+    searchTerms: ["tray status bar menubar subscription limits quota rate plan percent"],
+  },
+  {
     id: "boring-sidebar",
     title: "Boring sidebar (group by project)",
     to: "/settings/labs",

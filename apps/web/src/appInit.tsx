@@ -26,6 +26,10 @@ import { startMainAppLocationTracking } from "./components/sidebar/mainAppLocati
 import { startDesktopUpdateLaunchNotice } from "./components/sidebar/updateEverythingRun";
 import { startSlowRpcRequestToasts } from "./components/SlowRpcRequestToastCoordinator";
 import { startThreadNotifications } from "./components/ThreadNotificationCoordinator";
+import {
+  isMenuBarUsagePopover,
+  startMenuBarUsageTray,
+} from "./components/menubar/menuBarUsageTray";
 import { startGuideRunNotifications } from "./components/pullRequest/guide/PullRequestGuideRunCoordinator";
 import { APP_BASE_NAME, APP_DISPLAY_NAME, APP_STAGE_LABEL } from "./branding";
 import { resolveServerBackedAppDisplayName, resolveWindowTitle } from "./branding.logic";
@@ -261,6 +265,13 @@ export function startAppServices(): AppRouter {
 
   startClientAppearance();
   startI18n();
+  // A second window of the same app: notifications, badges and route tracking stay in the main one.
+  if (isMenuBarUsagePopover()) {
+    startHostEnvironmentLookup();
+    startEnvironmentThemeRepaint();
+    startBrowserChromeThemeSync(router);
+    return router;
+  }
   startDocumentTitle(router);
   startHostEnvironmentLookup();
   startEnvironmentThemeRepaint();
@@ -302,6 +313,7 @@ export function startAppServices(): AppRouter {
   startThreadNotifications(appAtomRegistry, router);
   startGuideRunNotifications(appAtomRegistry, router);
   if (isElectron) startDesktopUpdateLaunchNotice();
+  startMenuBarUsageTray();
 
   return router;
 }

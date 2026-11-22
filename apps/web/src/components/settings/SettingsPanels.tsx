@@ -45,6 +45,8 @@ import {
 } from "../../components/desktopUpdate.logic";
 import { ProviderModelPicker } from "../chat/ProviderModelPicker";
 import { TraitsPicker } from "../chat/TraitsPicker";
+import { supportsMenuBarUsage } from "../menubar/menuBarUsageTray";
+import { MenuBarUsageSettingsSection } from "./MenuBarUsageSettings";
 import { isElectron } from "../../env";
 import { buildHostedChannelSelectionUrl, type HostedAppChannel } from "../../hostedPairing";
 import {
@@ -809,6 +811,8 @@ export function GeneralSettingsPanel() {
           }
         />
       </SettingsSection>
+
+      {supportsMenuBarUsage() ? <MenuBarUsageSettingsSection /> : null}
 
       <SettingsSection id="sidebar" title={gt("Sidebar")}>
         <SettingsRow

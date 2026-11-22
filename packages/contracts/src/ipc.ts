@@ -1045,12 +1045,21 @@ export type DesktopMediaRead = typeof DesktopMediaReadSchema.Type;
 export const SystemSettingsPaneSchema = Schema.Literals(["full-disk-access"]);
 export type SystemSettingsPane = typeof SystemSettingsPaneSchema.Type;
 
+export interface DesktopMenuBarUsageState {
+  readonly enabled: boolean;
+  /** Short menu bar text such as "72%", or null for the icon alone. */
+  readonly title: string | null;
+  readonly tooltip: string;
+}
+
 export interface DesktopBridge {
   getAppBranding: () => DesktopAppBranding | null;
   getRelayTelemetryEnabled: () => boolean;
   getPathForFile: (file: File) => string;
   getClientPlatform: () => string;
   setNotificationBadge: (badge: { count: number; image: string | null }) => Promise<void>;
+  /** Shows, updates or removes the menu bar usage item; the main window renderer owns it. */
+  setMenuBarUsage: (state: DesktopMenuBarUsageState) => Promise<void>;
   onNotificationBadgeClear: (listener: () => void) => () => void;
   onTrackpadScrollBegin: (listener: () => void) => () => void;
   onTrackpadScrollEnd: (listener: () => void) => () => void;
