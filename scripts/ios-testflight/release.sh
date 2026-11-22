@@ -2,7 +2,8 @@
 # Builds this fork's iOS app at a git ref and uploads it to TestFlight.
 # Run by the launchd agent from install.sh when the Release Monitor writes a ref to the request
 # file; safe to run by hand: release.sh [ref]   (default: main)
-# Signing and upload use an App Store Connect API key named in config.env.
+# Signing and upload use the App Store Connect API key whose ID is in config.env; its .p8 file
+# is found in ~/.appstoreconnect/private_keys by that ID (Apple names it AuthKey_<id>.p8).
 set -Eeuo pipefail
 
 STATE_DIR="${T3_TESTFLIGHT_STATE_DIR:-$HOME/Library/Application Support/t3code-testflight}"
@@ -51,17 +52,18 @@ if [[ ! -f "$CONFIG" ]]; then
 fi
 # shellcheck source=/dev/null
 source "$CONFIG"
-for name in T3CODE_IOS_TEAM_ID T3CODE_IOS_BUNDLE_ID ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_PATH; do
+for name in T3CODE_IOS_TEAM_ID T3CODE_IOS_BUNDLE_ID ASC_KEY_ID ASC_ISSUER_ID; do
   if [[ -z "${!name:-}" ]]; then
     status failed "Set $name in config.env."
     log "$name is not set in $CONFIG"
     exit 1
   fi
 done
-ASC_KEY_PATH="${ASC_KEY_PATH/#\~/$HOME}"
-if [[ ! -f "$ASC_KEY_PATH" ]]; then
-  status failed "The App Store Connect key file is missing."
-  log "no key at $ASC_KEY_PATH"
+KEY_DIR="$HOME/.appstoreconnect/private_keys"
+ASC_KEY_PATH="$(find "$KEY_DIR" -maxdepth 1 -name "*$ASC_KEY_ID*.p8" 2>/dev/null | head -n1)"
+if [[ -z "$ASC_KEY_PATH" ]]; then
+  status failed "No .p8 key file for $ASC_KEY_ID in ~/.appstoreconnect/private_keys."
+  log "no *$ASC_KEY_ID*.p8 in $KEY_DIR"
   exit 1
 fi
 export DEVELOPER_DIR="${DEVELOPER_DIR:-$(xcode-select -p)}"

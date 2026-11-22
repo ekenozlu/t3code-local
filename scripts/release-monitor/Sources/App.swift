@@ -19,23 +19,33 @@ struct ContentView: View {
 
   var body: some View {
     NavigationSplitView {
-      List(monitor.pipelines, id: \.id, selection: $selection) { pipeline in
-        let snapshot = monitor.snapshots[pipeline.id] ?? PipelineSnapshot()
-        HStack(spacing: 10) {
-          StateDot(state: displayState(pipeline, snapshot))
-          VStack(alignment: .leading, spacing: 2) {
-            Text(pipeline.title).font(.headline)
-            Text(stateLabel(displayState(pipeline, snapshot)))
-              .font(.caption)
-              .foregroundStyle(.secondary)
+      List(selection: $selection) {
+        Section("Pipelines") {
+          ForEach(monitor.pipelines, id: \.id) { pipeline in
+            let snapshot = monitor.snapshots[pipeline.id] ?? PipelineSnapshot()
+            HStack(spacing: 10) {
+              StateDot(state: displayState(pipeline, snapshot))
+              VStack(alignment: .leading, spacing: 2) {
+                Text(pipeline.title).font(.headline)
+                Text(stateLabel(displayState(pipeline, snapshot)))
+                  .font(.caption)
+                  .foregroundStyle(.secondary)
+              }
+            }
+            .padding(.vertical, 4)
+            .tag(pipeline.id)
           }
         }
-        .padding(.vertical, 4)
+        Section("Settings") {
+          Label("TestFlight", systemImage: "gearshape").tag(ConfigView.id)
+        }
       }
       .navigationSplitViewColumnWidth(min: 200, ideal: 220)
     } detail: {
-      if let pipeline = monitor.pipelines.first(where: { $0.id == selection }) {
-        PipelineView(monitor: monitor, pipeline: pipeline)
+      if selection == ConfigView.id {
+        ConfigView(monitor: monitor)
+      } else if let pipeline = monitor.pipelines.first(where: { $0.id == selection }) {
+        PipelineView(monitor: monitor, pipeline: pipeline) { selection = ConfigView.id }
       }
     }
   }
@@ -86,6 +96,7 @@ struct StateDot: View {
 struct PipelineView: View {
   let monitor: Monitor
   let pipeline: Pipeline
+  let openSettings: () -> Void
   @State private var ref = "main"
 
   private var snapshot: PipelineSnapshot { monitor.snapshots[pipeline.id] ?? PipelineSnapshot() }
@@ -111,6 +122,9 @@ struct PipelineView: View {
     }
     .padding(20)
     .navigationTitle(pipeline.title)
+    .task(id: pipeline.id) {
+      if pipeline.id == "testflight", monitor.branches == nil { monitor.loadBranches() }
+    }
   }
 
   private var header: some View {
@@ -151,12 +165,21 @@ struct PipelineView: View {
       }
     }
     if pipeline.id == "testflight", !snapshot.missingConfig.isEmpty {
-      Label(
-        "Fill in \(snapshot.missingConfig.joined(separator: ", ")) in config.env before releasing.",
-        systemImage: "key.fill"
-      )
-      .foregroundStyle(.orange)
+      HStack {
+        Label(
+          "Missing \(snapshot.missingConfig.joined(separator: ", ")).",
+          systemImage: "key.fill"
+        )
+        .foregroundStyle(.orange)
+        Button("Open settings", action: openSettings)
+      }
     }
+  }
+
+  /// The fetched branches, keeping the current pick listed while they load.
+  private var branchOptions: [String] {
+    let branches = monitor.branches ?? []
+    return branches.contains(ref) ? branches : [ref] + branches
   }
 
   private func row(_ label: String, _ value: String?) -> some View {
@@ -174,15 +197,20 @@ struct PipelineView: View {
         Button("Install") { monitor.request(pipeline, "install") }
           .disabled(busy || snapshot.builtTag == nil || snapshot.builtTag == snapshot.installedTag)
       } else {
-        TextField("Branch, tag or commit", text: $ref)
-          .textFieldStyle(.roundedBorder)
-          .frame(width: 220)
-        Button("Release to TestFlight") {
-          monitor.request(pipeline, ref.trimmingCharacters(in: .whitespaces))
+        Picker("Branch", selection: $ref) {
+          ForEach(branchOptions, id: \.self) { Text($0).tag($0) }
         }
-        .buttonStyle(.borderedProminent)
-        .disabled(busy || !snapshot.missingConfig.isEmpty || ref.trimmingCharacters(in: .whitespaces).isEmpty)
-        Button("Edit config") { monitor.openConfig(pipeline) }
+        .frame(width: 260)
+        Button {
+          monitor.loadBranches()
+        } label: {
+          Image(systemName: "arrow.clockwise")
+        }
+        .help("Reload branches from GitHub")
+        .disabled(monitor.loadingBranches)
+        Button("Release to TestFlight") { monitor.request(pipeline, ref) }
+          .buttonStyle(.borderedProminent)
+          .disabled(busy || !snapshot.missingConfig.isEmpty)
         Button("App Store Connect") {
           NSWorkspace.shared.open(URL(string: "https://appstoreconnect.apple.com/apps")!)
         }

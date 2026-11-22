@@ -28,17 +28,17 @@ if [[ ! -f "$STATE_DIR/config.env" ]]; then
 # Your paid Apple Developer team and the bundle ID of the App Store Connect app.
 T3CODE_IOS_TEAM_ID=
 T3CODE_IOS_BUNDLE_ID=
-# App Store Connect API key (Users and Access > Integrations, App Manager role).
+# App Store Connect API key (Users and Access > Integrations, App Manager role). Its .p8 file is
+# found in ~/.appstoreconnect/private_keys by this ID.
 ASC_KEY_ID=
 ASC_ISSUER_ID=
-ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_XXXXXXXXXX.p8
 # Optional: the version shown in TestFlight (defaults to the one in app.config.ts).
 # T3CODE_MOBILE_VERSION=2.3.0
 # The full Xcode, when xcode-select points at the command line tools.
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 EOF
   chmod 600 "$STATE_DIR/config.env"
-  echo "Created $STATE_DIR/config.env; fill it in before the first release."
+  echo "Created $STATE_DIR/config.env; fill it in from T3 Release Monitor's settings."
 fi
 
 cat >"$PLIST" <<EOF

@@ -8,6 +8,9 @@ final class Monitor {
   let pipelines: [Pipeline] = [.desktop, .testflight]
   var snapshots: [String: PipelineSnapshot] = [:]
   var lastError: String?
+  /// Branches on the repo's origin, newest fetch first; nil until the first fetch lands.
+  var branches: [String]?
+  var loadingBranches = false
   /// The checkout the app was built from, for installing agents and running git.
   let repoPath: String? = Bundle.main.object(forInfoDictionaryKey: "T3RepoPath") as? String
 
@@ -47,6 +50,41 @@ final class Monitor {
     }
   }
 
+  func loadBranches() {
+    guard let repoPath, !loadingBranches else { return }
+    loadingBranches = true
+    Task.detached(priority: .userInitiated) {
+      let result = Shell.run("/usr/bin/git", ["-C", repoPath, "ls-remote", "--heads", "origin"])
+      let names = result.output.split(separator: "\n").compactMap { line -> String? in
+        guard let ref = line.split(separator: "\t").last, ref.hasPrefix("refs/heads/") else {
+          return nil
+        }
+        return String(ref.dropFirst("refs/heads/".count))
+      }
+      await MainActor.run {
+        self.loadingBranches = false
+        if result.status == 0 {
+          self.branches = names.sorted { left, right in
+            // main first, then alphabetical.
+            left == "main" ? right != "main" : (right != "main" && left < right)
+          }
+        } else {
+          self.lastError = "Could not list branches: \(result.output)"
+        }
+      }
+    }
+  }
+
+  func saveConfig(_ config: TestFlightConfig) {
+    do {
+      try config.write(to: Pipeline.testflight.configFile)
+      lastError = nil
+    } catch {
+      lastError = "Could not save the config: \(error.localizedDescription)"
+    }
+    refresh(checkAgents: false)
+  }
+
   func request(_ pipeline: Pipeline, _ value: String) {
     do {
       try FileManager.default.createDirectory(at: pipeline.stateDir, withIntermediateDirectories: true)
@@ -79,14 +117,5 @@ final class Monitor {
       return
     }
     NSWorkspace.shared.open(url)
-  }
-
-  func openConfig(_ pipeline: Pipeline) {
-    // TextEdit, not the default app for .env files, which may be an IDE or nothing.
-    NSWorkspace.shared.open(
-      [pipeline.configFile],
-      withApplicationAt: URL(fileURLWithPath: "/System/Applications/TextEdit.app"),
-      configuration: NSWorkspace.OpenConfiguration()
-    )
   }
 }

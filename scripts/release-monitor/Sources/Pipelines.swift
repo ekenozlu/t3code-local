@@ -65,7 +65,9 @@ struct PipelineSnapshot: Equatable, Sendable {
   var installedTag: String?
   var builtTag: String?
   var uploadedBuild: String?
-  /// config.env keys that are still empty.
+  var config = TestFlightConfig()
+  var keyFiles: [URL] = []
+  /// What still blocks a TestFlight release.
   var missingConfig: [String] = []
 
   static func read(_ pipeline: Pipeline) -> PipelineSnapshot {
@@ -80,7 +82,9 @@ struct PipelineSnapshot: Equatable, Sendable {
     snapshot.builtTag = text(pipeline.stateDir.appending(path: "built-tag"))
     snapshot.uploadedBuild = text(pipeline.stateDir.appending(path: "uploaded-build"))
     if pipeline.id == "testflight" {
-      snapshot.missingConfig = missingKeys(in: pipeline.configFile)
+      snapshot.config = TestFlightConfig.load(from: pipeline.configFile)
+      snapshot.keyFiles = TestFlightConfig.keyFiles()
+      snapshot.missingConfig = snapshot.config.missing(keyFiles: snapshot.keyFiles)
     }
     return snapshot
   }
@@ -101,23 +105,6 @@ private func tail(of url: URL, bytes: Int) -> String {
   var lines = String(decoding: data, as: UTF8.self).split(separator: "\n", omittingEmptySubsequences: false)
   if size > UInt64(bytes), !lines.isEmpty { lines.removeFirst() }
   return lines.suffix(400).joined(separator: "\n")
-}
-
-private let requiredConfig = [
-  "T3CODE_IOS_TEAM_ID", "T3CODE_IOS_BUNDLE_ID", "ASC_KEY_ID", "ASC_ISSUER_ID", "ASC_KEY_PATH",
-]
-
-private func missingKeys(in url: URL) -> [String] {
-  guard let contents = try? String(contentsOf: url, encoding: .utf8) else { return requiredConfig }
-  var values: [String: String] = [:]
-  for line in contents.split(separator: "\n") where !line.hasPrefix("#") {
-    let parts = line.split(separator: "=", maxSplits: 1).map(String.init)
-    if parts.count == 2 { values[parts[0].trimmingCharacters(in: .whitespaces)] = parts[1] }
-  }
-  return requiredConfig.filter {
-    let value = values[$0]?.trimmingCharacters(in: .whitespaces) ?? ""
-    return value.isEmpty || value.contains("XXXXXXXXXX")
-  }
 }
 
 enum Shell {
