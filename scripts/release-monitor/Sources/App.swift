@@ -2,14 +2,19 @@ import SwiftUI
 
 @main
 struct ReleaseMonitorApp: App {
-  @State private var monitor = Monitor()
+  @State private var monitor: Monitor
+
+  init() {
+    Snapshot.renderIfRequested()
+    _monitor = State(initialValue: Monitor())
+  }
 
   var body: some Scene {
     Window("T3 Release Monitor", id: "main") {
       ContentView(monitor: monitor)
-        .frame(minWidth: 760, minHeight: 560)
+        .frame(minWidth: 860, minHeight: 600)
     }
-    .defaultSize(width: 960, height: 720)
+    .defaultSize(width: 1040, height: 760)
   }
 }
 
@@ -106,34 +111,69 @@ struct PipelineView: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 16) {
+    VStack(alignment: .leading, spacing: 14) {
       header
       if let error = monitor.lastError {
         Label(error, systemImage: "exclamationmark.triangle.fill")
           .foregroundStyle(.red)
           .textSelection(.enabled)
+          .fixedSize(horizontal: false, vertical: true)
       }
       if !snapshot.agentLoaded {
-        notInstalled
+        GroupBox {
+          HStack {
+            Text("The launchd agent for this pipeline is not running on this Mac.")
+            Spacer()
+            Button("Install agent") { monitor.installAgent(pipeline) }
+          }
+          .padding(6)
+        }
       } else {
-        details
-        actions
+        GroupBox("Status") { details.padding(6) }
+        GroupBox(pipeline.id == "desktop" ? "Update" : "Release") { actions.padding(6) }
       }
-      LogView(text: snapshot.logTail)
+      GroupBox("Log") {
+        LogView(text: snapshot.logTail).padding(2)
+      }
+      .frame(maxHeight: .infinity)
     }
     .padding(20)
     .navigationTitle(pipeline.title)
+    .toolbar {
+      ToolbarItemGroup {
+        if pipeline.id == "testflight" {
+          Button {
+            NSWorkspace.shared.open(URL(string: "https://appstoreconnect.apple.com/apps")!)
+          } label: {
+            Label("App Store Connect", systemImage: "safari")
+          }
+          .help("Open App Store Connect")
+        }
+        Button {
+          monitor.open(pipeline.logFile)
+        } label: {
+          Label("Open log", systemImage: "doc.text")
+        }
+        .help("Open the full log in Console")
+        Button {
+          monitor.installAgent(pipeline)
+        } label: {
+          Label("Reinstall agent", systemImage: "arrow.triangle.2.circlepath")
+        }
+        .help("Reinstall the launchd agent from this checkout")
+      }
+    }
     .task(id: pipeline.id) {
       if pipeline.id == "testflight", monitor.tags == nil { monitor.loadRefs() }
     }
   }
 
   private var header: some View {
-    HStack(alignment: .firstTextBaseline, spacing: 10) {
+    HStack(alignment: .center, spacing: 10) {
       StateDot(state: displayState(pipeline, snapshot))
       Text(stateLabel(displayState(pipeline, snapshot))).font(.title2.weight(.semibold))
       if busy { ProgressView().controlSize(.small) }
-      Spacer()
+      Spacer(minLength: 12)
       if let status = snapshot.status {
         Text(status.date, format: .relative(presentation: .named))
           .foregroundStyle(.secondary)
@@ -141,40 +181,38 @@ struct PipelineView: View {
     }
   }
 
-  private var notInstalled: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      Text("The launchd agent for this pipeline is not running on this Mac.")
-      Button("Install agent") { monitor.installAgent(pipeline) }
-    }
-  }
-
   @ViewBuilder private var details: some View {
-    Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
-      if pipeline.id == "desktop" {
-        row("Installed", snapshot.installedTag)
-        row("Built", snapshot.builtTag)
-        row("Latest tag", snapshot.status?.tag)
-      } else {
-        row("Last upload", snapshot.uploadedBuild)
-        row("Current run", snapshot.status.map { status in
-          [status.ref, status.commit, status.version.map { v in "\(v) (\(status.build ?? ""))" }]
-            .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
-        })
+    VStack(alignment: .leading, spacing: 10) {
+      Grid(alignment: .topLeading, horizontalSpacing: 16, verticalSpacing: 6) {
+        if pipeline.id == "desktop" {
+          row("Installed", snapshot.installedTag)
+          row("Built", snapshot.builtTag)
+          row("Latest tag", snapshot.status?.tag)
+        } else {
+          row("Last upload", snapshot.uploadedBuild)
+          row("Current run", snapshot.status.map { status in
+            [status.ref, status.commit, status.version.map { v in "\(v) (\(status.build ?? ""))" }]
+              .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+          })
+        }
+        if let message = snapshot.status?.message, !message.isEmpty {
+          row("Message", message)
+        }
       }
-      if let message = snapshot.status?.message, !message.isEmpty {
-        row("Message", message)
+      if pipeline.id == "testflight", !snapshot.missingConfig.isEmpty {
+        HStack(alignment: .firstTextBaseline) {
+          Label(
+            "Missing \(snapshot.missingConfig.joined(separator: ", ")).",
+            systemImage: "key.fill"
+          )
+          .foregroundStyle(.orange)
+          .fixedSize(horizontal: false, vertical: true)
+          Spacer()
+          Button("Open settings", action: openSettings)
+        }
       }
     }
-    if pipeline.id == "testflight", !snapshot.missingConfig.isEmpty {
-      HStack {
-        Label(
-          "Missing \(snapshot.missingConfig.joined(separator: ", ")).",
-          systemImage: "key.fill"
-        )
-        .foregroundStyle(.orange)
-        Button("Open settings", action: openSettings)
-      }
-    }
+    .frame(maxWidth: .infinity, alignment: .leading)
   }
 
   private var mobileTags: [String] { MobileVersion.mobileTags(monitor.tags ?? []) }
@@ -186,47 +224,58 @@ struct PipelineView: View {
   private func row(_ label: String, _ value: String?) -> some View {
     GridRow {
       Text(label).foregroundStyle(.secondary)
-      Text(value ?? "—").textSelection(.enabled)
+      Text(value ?? "—")
+        .textSelection(.enabled)
+        .fixedSize(horizontal: false, vertical: true)
     }
   }
 
   @ViewBuilder private var actions: some View {
-    HStack(spacing: 8) {
-      if pipeline.id == "desktop" {
+    if pipeline.id == "desktop" {
+      HStack(spacing: 8) {
+        Text("Checks GitHub for a newer tag every 15 minutes; installs when T3 Code is closed.")
+          .foregroundStyle(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
+        Spacer(minLength: 12)
         Button("Check now") { monitor.request(pipeline, "check") }
           .disabled(busy)
         Button("Install") { monitor.request(pipeline, "install") }
+          .buttonStyle(.borderedProminent)
           .disabled(busy || snapshot.builtTag == nil || snapshot.builtTag == snapshot.installedTag)
-      } else {
-        Picker("Tag", selection: $tag) {
-          if mobileTags.isEmpty { Text("No mobile tags yet").tag(String?.none) }
-          ForEach(mobileTags, id: \.self) { Text($0).tag(Optional($0)) }
-        }
-        .frame(width: 240)
-        Button {
-          monitor.loadRefs()
-        } label: {
-          Image(systemName: "arrow.clockwise")
-        }
-        .help("Reload tags and branches from GitHub")
-        .disabled(monitor.loadingRefs)
-        Button("New tag…") { showingNewTag = true }
-          .disabled(monitor.tags == nil)
-        Button("Release to TestFlight") {
-          if let selected = selectedTag { monitor.request(pipeline, selected) }
-        }
-        .buttonStyle(.borderedProminent)
-        .disabled(busy || !snapshot.missingConfig.isEmpty || selectedTag == nil)
-        .sheet(isPresented: $showingNewTag) {
-          NewTagSheet(monitor: monitor) { created in tag = created }
-        }
-        Button("App Store Connect") {
-          NSWorkspace.shared.open(URL(string: "https://appstoreconnect.apple.com/apps")!)
-        }
       }
-      Spacer()
-      Button("Open log") { monitor.open(pipeline.logFile) }
-      Button("Reinstall agent") { monitor.installAgent(pipeline) }
+    } else {
+      VStack(alignment: .leading, spacing: 10) {
+        HStack(spacing: 8) {
+          Text("Tag").foregroundStyle(.secondary)
+          Picker("Tag", selection: Binding(get: { selectedTag }, set: { tag = $0 })) {
+            if mobileTags.isEmpty { Text("No mobile tags yet").tag(String?.none) }
+            ForEach(mobileTags, id: \.self) { Text($0).tag(Optional($0)) }
+          }
+          .labelsHidden()
+          .frame(minWidth: 160, maxWidth: 240)
+          Button {
+            monitor.loadRefs()
+          } label: {
+            Image(systemName: "arrow.clockwise")
+          }
+          .help("Reload tags and branches from GitHub")
+          .disabled(monitor.loadingRefs)
+          Button("New tag…") { showingNewTag = true }
+            .disabled(monitor.tags == nil)
+          Spacer(minLength: 12)
+          Button("Release to TestFlight") {
+            if let selected = selectedTag { monitor.request(pipeline, selected) }
+          }
+          .buttonStyle(.borderedProminent)
+          .disabled(busy || !snapshot.missingConfig.isEmpty || selectedTag == nil)
+        }
+        Text("The tag sets the version; the build number is the time of the run.")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+      }
+      .sheet(isPresented: $showingNewTag) {
+        NewTagSheet(monitor: monitor) { created in tag = created }
+      }
     }
   }
 }
