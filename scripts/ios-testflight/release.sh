@@ -1,6 +1,7 @@
 #!/bin/bash
 # Builds this fork's iOS app at a git ref and uploads it to TestFlight.
-# Run by the launchd agent from install.sh when the Release Monitor writes a ref to the request
+# Run by the launchd agent from install.sh when Release Monitor (~/Development/release-monitor)
+# writes a ref to the request
 # file; safe to run by hand: release.sh [ref]   (default: main)
 # A mobile-vX.Y.Z tag sets the version to X.Y.Z; any other ref uses T3CODE_MOBILE_VERSION or the
 # version in app.config.ts.
