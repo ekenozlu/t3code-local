@@ -202,8 +202,18 @@ APP_VARIANT=production \
   T3CODE_MOBILE_VERSION="$version" \
   T3CODE_IOS_TEAM_ID="$T3CODE_IOS_TEAM_ID" \
   T3CODE_IOS_BUNDLE_ID="$T3CODE_IOS_BUNDLE_ID" \
+  T3CODE_IOS_BUILD_NUMBER="$build" \
   EXPO_NO_GIT_STATUS=1 \
   ./node_modules/.bin/expo prebuild --clean --platform ios
+# App Store Connect rejects a repeated build number, so never upload Expo's default "1".
+# Extensions may defer to $(CURRENT_PROJECT_VERSION), which the archive step sets.
+for plist in ios/*/Info.plist; do
+  bundle_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist" 2>/dev/null || true)"
+  case "$bundle_version" in
+  "$build" | '$(CURRENT_PROJECT_VERSION)') ;;
+  *) fail "The generated $plist has build number '${bundle_version:-none}', not $build." ;;
+  esac
+done
 
 status archiving
 rm -rf "$BUILD_DIR"

@@ -10,6 +10,7 @@ vi.mock("../../scripts/lib/public-config.ts", () => ({
     APP_VARIANT: process.env.APP_VARIANT,
     T3CODE_IOS_BUNDLE_ID: process.env.T3CODE_IOS_BUNDLE_ID,
     T3CODE_IOS_TEAM_ID: process.env.T3CODE_IOS_TEAM_ID,
+    T3CODE_IOS_BUILD_NUMBER: process.env.T3CODE_IOS_BUILD_NUMBER,
   }),
 }));
 
@@ -19,12 +20,17 @@ afterEach(() => {
 
 async function loadConfig(
   variant: string | undefined,
-  fork: { readonly bundleId?: string; readonly teamId?: string } = {},
+  fork: {
+    readonly bundleId?: string;
+    readonly teamId?: string;
+    readonly buildNumber?: string;
+  } = {},
 ) {
   vi.resetModules();
   vi.stubEnv("APP_VARIANT", variant);
   vi.stubEnv("T3CODE_IOS_BUNDLE_ID", fork.bundleId ?? "");
   vi.stubEnv("T3CODE_IOS_TEAM_ID", fork.teamId ?? "");
+  vi.stubEnv("T3CODE_IOS_BUILD_NUMBER", fork.buildNumber ?? "");
   return (await import("./app.config.ts")).default;
 }
 
@@ -43,6 +49,14 @@ it("signs a fork's iOS app and its extensions under the fork's own team and bund
   expect(config.ios?.appleTeamId).toBe("ABCDE12345");
   expect(JSON.stringify(config.plugins)).toContain("com.example.t3code.sharing");
   expect(config.android?.package).toBe("com.t3tools.t3code");
+});
+
+it.each([
+  ["202611222028", "202611222028"],
+  ["", undefined],
+])("uses T3CODE_IOS_BUILD_NUMBER=%j as the iOS build number", async (buildNumber, expected) => {
+  const config = await loadConfig("production", { buildNumber });
+  expect(config.ios?.buildNumber).toBe(expected);
 });
 
 it.each([
