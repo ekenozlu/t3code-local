@@ -23,7 +23,7 @@ struct ContentView: View {
   @State private var selection = Pipeline.desktop.id
 
   var body: some View {
-    NavigationSplitView {
+    HStack(spacing: 0) {
       List(selection: $selection) {
         Section("Pipelines") {
           ForEach(monitor.pipelines, id: \.id) { pipeline in
@@ -45,13 +45,17 @@ struct ContentView: View {
           Label("TestFlight", systemImage: "gearshape").tag(ConfigView.id)
         }
       }
-      .navigationSplitViewColumnWidth(min: 200, ideal: 220)
-    } detail: {
-      if selection == ConfigView.id {
-        ConfigView(monitor: monitor)
-      } else if let pipeline = monitor.pipelines.first(where: { $0.id == selection }) {
-        PipelineView(monitor: monitor, pipeline: pipeline) { selection = ConfigView.id }
+      .listStyle(.sidebar)
+      .frame(width: 220)
+      Divider()
+      Group {
+        if selection == ConfigView.id {
+          ConfigView(monitor: monitor)
+        } else if let pipeline = monitor.pipelines.first(where: { $0.id == selection }) {
+          PipelineView(monitor: monitor, pipeline: pipeline) { selection = ConfigView.id }
+        }
       }
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
   }
 }
@@ -292,6 +296,10 @@ struct LogView: View {
           .padding(10)
         Color.clear.frame(height: 1).id("end")
       }
+      // A scroll view's ideal size is its content's; without this cap a long log asks the window
+      // to grow past the screen and pushes the rest of the page out of view.
+      .frame(minWidth: 0, idealWidth: 400, maxWidth: .infinity)
+      .frame(minHeight: 140, idealHeight: 260, maxHeight: .infinity)
       .background(.background.secondary, in: RoundedRectangle(cornerRadius: 8))
       .onChange(of: text, initial: true) { proxy.scrollTo("end", anchor: .bottom) }
     }

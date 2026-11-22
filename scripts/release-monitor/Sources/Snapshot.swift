@@ -25,9 +25,15 @@ enum Snapshot {
       ("testflight", AnyView(PipelineView(monitor: monitor, pipeline: .testflight) {})),
       ("settings", AnyView(ConfigView(monitor: monitor))),
       ("newtag", AnyView(NewTagSheet(monitor: monitor) { _ in })),
+      ("window", AnyView(ContentView(monitor: monitor))),
     ]
     for (name, page) in pages {
-      let size = NSSize(width: name == "newtag" ? 420 : width, height: name == "newtag" ? 300 : 700)
+      // Pages must fit the window's minimum size, or the window grows and clips them.
+      print(name, "fitting", NSHostingView(rootView: page).fittingSize)
+      let size =
+        name == "newtag"
+        ? NSSize(width: 420, height: 300)
+        : name == "window" ? NSSize(width: 1040, height: 760) : NSSize(width: width, height: 700)
       let host = NSHostingView(
         rootView: page.frame(width: size.width, height: size.height)
           .background(Color(nsColor: .windowBackgroundColor)))
