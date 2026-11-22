@@ -98,7 +98,7 @@ export const installMenuBarUsage = Effect.fn("desktop.ipc.installMenuBarUsage")(
             sandbox: true,
           },
         },
-        { auxiliary: true },
+        { auxiliary: true, appWindow: true },
       ),
     );
     window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });

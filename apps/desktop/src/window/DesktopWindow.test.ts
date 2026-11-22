@@ -303,6 +303,7 @@ function layerTest(input: {
     sendAll: () => Effect.void,
     destroyAll: input.destroyAll ?? Effect.void,
     syncAllAppearance: (sync) => sync(input.window),
+    appWindows: Effect.succeed([]),
   } satisfies ElectronWindow.ElectronWindow["Service"]);
 
   return DesktopWindow.layer.pipe(
@@ -424,6 +425,7 @@ const makeSplashScenario = (createOutcomes: readonly (Electron.BrowserWindow | n
       sendAll: () => Effect.void,
       destroyAll: Effect.void,
       syncAllAppearance: (sync) => (fallbackWindow ? sync(fallbackWindow) : Effect.void),
+      appWindows: Effect.succeed([]),
     } satisfies ElectronWindow.ElectronWindow["Service"];
 
     const layer = DesktopWindow.layer.pipe(

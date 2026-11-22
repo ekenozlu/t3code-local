@@ -110,12 +110,17 @@ export class ElectronWindowOperationError extends Schema.TaggedError<ElectronWin
 export class ElectronWindow extends Context.Service<
   ElectronWindow,
   {
-    /** Auxiliary windows are never returned as the main-or-first fallback. */
+    /**
+     * Auxiliary windows are never returned as the main-or-first fallback. `appWindow` marks a
+     * window that loads the app itself, so its top frame may use desktop IPC like the main one.
+     */
     readonly create: (
       options: Electron.BrowserWindowConstructorOptions,
-      behavior?: { readonly auxiliary?: boolean },
+      behavior?: { readonly auxiliary?: boolean; readonly appWindow?: boolean },
     ) => Effect.Effect<Electron.BrowserWindow, ElectronWindowCreateError>;
     readonly main: Effect.Effect<Option.Option<Electron.BrowserWindow>>;
+    /** Live windows that load the app: the main window first, then other `appWindow`s. */
+    readonly appWindows: Effect.Effect<ReadonlyArray<Electron.BrowserWindow>>;
     readonly currentMainOrFirst: Effect.Effect<Option.Option<Electron.BrowserWindow>>;
     readonly focusedMainOrFirst: Effect.Effect<Option.Option<Electron.BrowserWindow>>;
     readonly setMain: (window: Electron.BrowserWindow) => Effect.Effect<void>;
@@ -145,6 +150,7 @@ export const make = Effect.gen(function* () {
   yield* Effect.addFinalizer(() => Effect.sync(() => windowsForegroundFocus?.close()));
   const mainWindowRef = yield* Ref.make<Option.Option<Electron.BrowserWindow>>(Option.none());
   const auxiliaryWindows = new WeakSet<Electron.BrowserWindow>();
+  const trustedAppWindows = new WeakSet<Electron.BrowserWindow>();
 
   const listWindows = Effect.try({
     try: () => Electron.BrowserWindow.getAllWindows(),
@@ -241,12 +247,19 @@ export const make = Effect.gen(function* () {
         try: () => {
           const window = new Electron.BrowserWindow(options);
           if (behavior?.auxiliary === true) auxiliaryWindows.add(window);
+          if (behavior?.appWindow === true) trustedAppWindows.add(window);
           return window;
         },
         catch: (cause) => new ElectronWindowCreateError({ options: diagnosticOptions, cause }),
       });
     }),
     main: liveMain,
+    appWindows: Effect.map(liveMain, (main) => {
+      const others = Electron.BrowserWindow.getAllWindows().filter(
+        (window) => trustedAppWindows.has(window) && !window.isDestroyed(),
+      );
+      return Option.isSome(main) ? [main.value, ...others] : others;
+    }),
     currentMainOrFirst,
     focusedMainOrFirst,
     setMain: Effect.fn("ElectronWindow.setMain")(function (window) {

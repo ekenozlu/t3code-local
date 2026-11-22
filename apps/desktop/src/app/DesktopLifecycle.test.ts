@@ -81,6 +81,7 @@ function layerElectronWindow(destroyAll: Effect.Effect<void> = Effect.void) {
     sendAll: () => Effect.void,
     destroyAll,
     syncAllAppearance: () => Effect.void,
+    appWindows: Effect.succeed([]),
   });
 }
 

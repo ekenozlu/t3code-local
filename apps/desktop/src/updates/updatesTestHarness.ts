@@ -136,6 +136,7 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
       installSteps.push("destroyAll");
     }),
     syncAllAppearance: () => Effect.void,
+    appWindows: Effect.succeed([]),
   } satisfies ElectronWindow.ElectronWindow["Service"]);
 
   const layerSshEnvironment = Layer.mock(DesktopSshEnvironment.DesktopSshEnvironment, {
