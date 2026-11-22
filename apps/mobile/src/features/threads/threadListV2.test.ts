@@ -35,6 +35,7 @@ import { threadJumpTarget } from "../keyboard/threadKeyboardShortcuts";
 import {
   buildThreadListV2Items,
   buildThreadListV2ListItems,
+  buildThreadListV2ProjectSections,
   getThreadListV2OrderedSection,
   layoutThreadListV2RowMenuActions,
   resolveThreadListV2SnoozeMenuSelection,
@@ -1812,5 +1813,92 @@ describe("queued messages keep a settled thread active", () => {
       ["settled", "slim"],
     ]);
     expect(layout.settledCount).toBe(1);
+  });
+});
+
+describe("buildThreadListV2ProjectSections", () => {
+  const web = ProjectId.make("web");
+  const api = ProjectId.make("api");
+  const empty = ProjectId.make("empty");
+  const at = (day: number) => `2026-06-${String(day).padStart(2, "0")}T00:00:00.000Z`;
+  const sections = [
+    { key: "web", title: "Web", projectRefs: [{ environmentId, projectId: web }] },
+    { key: "api", title: "API", projectRefs: [{ environmentId, projectId: api }] },
+    { key: "empty", title: "Empty", projectRefs: [{ environmentId, projectId: empty }] },
+  ];
+  const threads = [
+    ...Array.from({ length: 7 }, (_, index) =>
+      makeThread({
+        id: ThreadId.make(`web-${index}`),
+        title: `Web ${index}`,
+        projectId: web,
+        latestUserMessageAt: at(20 - index),
+        ...(index === 1 ? { settledOverride: "settled" as const, settledAt: at(19) } : {}),
+      }),
+    ),
+    makeThread({
+      id: ThreadId.make("api-0"),
+      title: "API 0",
+      projectId: api,
+      latestUserMessageAt: at(25),
+    }),
+  ];
+  const build = (overrides: Partial<Parameters<typeof buildThreadListV2ProjectSections>[0]>) =>
+    buildThreadListV2ProjectSections({
+      threads,
+      environmentId: null,
+      sections,
+      now: NOW,
+      selectedThreadKey: null,
+      collapsedKeys: new Set(),
+      shownCounts: new Map(),
+      pageSize: 5,
+      unloadedCount: () => 0,
+      ...overrides,
+    });
+
+  it("lists each project's threads most recent first, five at a time, keeping the open thread", () => {
+    const result = build({ selectedThreadKey: `${environmentId}:web-6` });
+    expect(result.map((section) => section.key)).toEqual(["api", "web"]);
+    const webSection = result[1]!;
+    expect(webSection.items.map((item) => [item.thread.id, item.variant])).toEqual([
+      ["web-0", "card"],
+      ["web-1", "slim"],
+      ["web-2", "card"],
+      ["web-3", "card"],
+      ["web-4", "card"],
+      ["web-6", "card"],
+    ]);
+    expect(webSection.moreCount).toBe(1);
+    expect(webSection.needsOlderSettled).toBe(false);
+
+    const more = build({ shownCounts: new Map([["web", 10]]) })[1]!;
+    expect(more.items).toHaveLength(7);
+    expect(more.moreCount).toBe(0);
+  });
+
+  it("collapses to the open thread and counts threads still on the server", () => {
+    const collapsed = build({
+      collapsedKeys: new Set(["web"]),
+      selectedThreadKey: `${environmentId}:web-3`,
+    })[1]!;
+    expect(collapsed.expanded).toBe(false);
+    expect(collapsed.items.map((item) => item.thread.id)).toEqual(["web-3"]);
+    expect(collapsed.moreCount).toBe(0);
+
+    const filtered = build({ projectRefs: [{ environmentId, projectId: api }] });
+    expect(filtered.map((section) => section.key)).toEqual(["api"]);
+
+    const withOlder = build({
+      shownCounts: new Map([["web", 10]]),
+      unloadedCount: (refs) =>
+        refs[0]?.projectId === empty ? 3 : refs[0]?.projectId === web ? 4 : 0,
+    });
+    // A project with only older settled threads on the server still gets a section.
+    expect(withOlder.map((section) => section.key)).toEqual(["api", "web", "empty"]);
+    expect(withOlder[1]).toMatchObject({ loadedCount: 7, unloadedCount: 4, moreCount: 4 });
+    // Only a section the user asked for more reads older pages.
+    expect(withOlder[1]!.needsOlderSettled).toBe(true);
+    expect(withOlder[2]).toMatchObject({ items: [], moreCount: 3, needsOlderSettled: false });
   });
 });

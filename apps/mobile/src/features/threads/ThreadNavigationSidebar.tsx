@@ -54,6 +54,8 @@ import { WorkspaceListHeader } from "../layout/workspace/WorkspaceListHeader";
 import { WorkspaceSidebarColumn } from "../layout/workspace/WorkspaceSidebarColumn";
 import {
   ThreadListV2PendingRow,
+  ThreadListV2ProjectHeader,
+  ThreadListV2ProjectMoreRow,
   ThreadListV2Row,
   ThreadListV2SettledShelfHeader,
   ThreadListV2ShowMoreRow,
@@ -237,7 +239,13 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
     toggleSettledShelf,
     toggleSnoozedShelf,
     toggleWorkingShelf,
+    groupByProject: groupByProjectPreference,
+    collapsedProjectKeys,
+    toggleProjectSection,
+    setThreadListGrouping,
   } = useThreadListV2ShelfPreferences();
+  // The hook narrows sections to the project filter through `projectRefs`.
+  const projectSections = groupByProjectPreference ? projectScopes : null;
   const now = useThreadListNow(threads);
   const listEnvironments = useAtomValue(threadListEnvironmentsAtom);
   const {
@@ -259,6 +267,8 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
     items: threadListV2Items,
     contentOnlyThreadKeys,
     olderSettledShelf,
+    groupByProject,
+    showMoreInProject,
   } = useThreadListV2({
     threads: launchingThreads,
     pendingTasks,
@@ -280,9 +290,11 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
     snoozedShelfExpanded,
     settledShelfExpanded,
     selectedThreadKey: props.selectedThreadKey ?? null,
+    projectSections,
+    collapsedProjectKeys,
   });
   const listItems: readonly SidebarListItem[] =
-    settledShelfExpanded && threadListV2Layout.hiddenSettledCount > 0
+    !groupByProject && settledShelfExpanded && threadListV2Layout.hiddenSettledCount > 0
       ? [
           ...threadListV2Items,
           {
@@ -504,6 +516,28 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
             pane="sidebar"
           />
         );
+      case "v2-project-header":
+        return (
+          <ThreadListV2ProjectHeader
+            projectKey={item.projectKey}
+            title={item.title}
+            count={item.count}
+            expanded={item.expanded}
+            disabled={item.disabled}
+            onToggle={toggleProjectSection}
+            pane="sidebar"
+          />
+        );
+      case "v2-project-more":
+        return (
+          <ThreadListV2ProjectMoreRow
+            projectKey={item.projectKey}
+            moreCount={item.moreCount}
+            state={item.state}
+            onPress={showMoreInProject}
+            pane="sidebar"
+          />
+        );
       case "v2-show-more":
         return (
           <ThreadListV2ShowMoreRow
@@ -538,6 +572,8 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
           selectedProjectKey,
           onEnvironmentChange: setSelectedEnvironmentId,
           onProjectChange: setSelectedProjectKey,
+          grouping: groupByProjectPreference ? "project" : "status",
+          onGroupingChange: setThreadListGrouping,
         }),
       }}
       sidebar={{

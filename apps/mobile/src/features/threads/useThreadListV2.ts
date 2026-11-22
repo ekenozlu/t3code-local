@@ -1,6 +1,10 @@
-import type { OlderSettledScope } from "@t3tools/client-runtime/state/threads";
+import { PROJECT_THREAD_PAGE_SIZE } from "@t3tools/client-runtime/state/project-thread-paging";
+import {
+  unloadedOlderSettledCount,
+  type OlderSettledScope,
+} from "@t3tools/client-runtime/state/threads";
 import type { EnvironmentId } from "@t3tools/contracts";
-import { useMemo, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 
 import { scopedProjectKey } from "../../lib/scopedEntities";
 import { useOlderSettledShelf, useOlderSettledShelfGrowth } from "../../state/olderSettledShelf";
@@ -8,6 +12,9 @@ import type { PendingNewTask } from "../../state/use-pending-new-tasks";
 import {
   buildThreadListV2Items,
   buildThreadListV2ListItems,
+  buildThreadListV2ProjectSections,
+  type ThreadListV2ListItem,
+  type ThreadListV2ProjectSectionInput,
   getThreadListV2OrderedSection,
   threadListInboxReturns,
   threadListV2LayoutTime,
@@ -65,8 +72,15 @@ export function useThreadListV2(input: {
   readonly snoozedShelfExpanded: boolean;
   readonly settledShelfExpanded: boolean;
   readonly selectedThreadKey: string | null;
+  /** "By project" sections, or null for the status inbox. A search lists matches either way. */
+  readonly projectSections: ReadonlyArray<ThreadListV2ProjectSectionInput> | null;
+  readonly collapsedProjectKeys: ReadonlyArray<string>;
 }) {
   const { threads, workingShelfEnabled } = input;
+  const groupByProject = input.projectSections !== null && input.searchQuery.trim().length === 0;
+  const [projectShownCounts, setProjectShownCounts] = useState<ReadonlyMap<string, number>>(
+    () => new Map(),
+  );
   const layoutTime = useMemo(
     () => threadListV2LayoutTime({ threads, now: input.now, searchQuery: input.searchQuery }),
     [threads, input.now, input.searchQuery],
@@ -126,7 +140,8 @@ export function useThreadListV2(input: {
   );
   const olderSettledShelf = useOlderSettledShelf({
     scopes,
-    expanded: input.settledShelfExpanded,
+    // "By project" sections read older pages whenever one needs them to fill its page.
+    expanded: groupByProject || input.settledShelfExpanded,
     // A search lists only matches, so the shelf would page forever; loaded pages stay.
     visibleCount: input.searchQuery.trim().length === 0 ? input.settledLimit : 0,
   });
@@ -189,7 +204,67 @@ export function useThreadListV2(input: {
       scopes,
     ],
   );
-  useOlderSettledShelfGrowth(olderSettledShelf, layout.listedSettledThreads);
+  const projectSections = useMemo(
+    () =>
+      groupByProject && input.projectSections !== null
+        ? buildThreadListV2ProjectSections({
+            threads,
+            environmentId: input.environmentId,
+            projectRefs: input.projectRefs,
+            sections: input.projectSections,
+            settlementEnvironmentIds: input.settlementEnvironmentIds,
+            snoozeEnvironmentIds: input.snoozeEnvironmentIds,
+            queuedThreadKeys: input.queuedThreadKeys,
+            now: layoutTime,
+            selectedThreadKey: input.selectedThreadKey,
+            collapsedKeys: new Set(input.collapsedProjectKeys),
+            shownCounts: projectShownCounts,
+            pageSize: PROJECT_THREAD_PAGE_SIZE,
+            unloadedCount: (projectRefs, loadedThreads) =>
+              unloadedOlderSettledCount({
+                olderSettled: (environmentId) =>
+                  olderSettledShelf.environments.get(environmentId)?.older ?? null,
+                scopes: [...new Set(projectRefs.map((ref) => ref.environmentId))].map(
+                  (environmentId) => ({
+                    environmentId,
+                    projectIds: projectRefs.flatMap((ref) =>
+                      ref.environmentId === environmentId ? [ref.projectId] : [],
+                    ),
+                  }),
+                ),
+                threads: loadedThreads,
+              }),
+          })
+        : null,
+    [
+      groupByProject,
+      threads,
+      input.environmentId,
+      input.projectRefs,
+      input.projectSections,
+      input.settlementEnvironmentIds,
+      input.snoozeEnvironmentIds,
+      input.queuedThreadKeys,
+      layoutTime,
+      input.selectedThreadKey,
+      input.collapsedProjectKeys,
+      projectShownCounts,
+      olderSettledShelf.environments,
+    ],
+  );
+  const projectNeedsOlderSettled =
+    projectSections?.some((section) => section.needsOlderSettled) === true;
+  // Pages load newest first across each environment, so a section that needs older threads asks
+  // for one more page at a time until it has them or the server has none left.
+  useOlderSettledShelfGrowth(
+    projectSections === null
+      ? olderSettledShelf
+      : {
+          ...olderSettledShelf,
+          visibleCount: projectNeedsOlderSettled ? layout.listedSettledThreads.length + 1 : 0,
+        },
+    layout.listedSettledThreads,
+  );
   const contentOnlyThreadKeys = useKeySet([...layout.contentOnlyThreadKeys].sort().join("\n"));
   const pendingTasks = useMemo(() => {
     const scopedProjectKeys =
@@ -242,7 +317,75 @@ export function useThreadListV2(input: {
       input.shelfPreferencesLoaded,
     ],
   );
-  return { layout, items, contentOnlyThreadKeys, olderSettledShelf };
+  const projectItems = useMemo((): ThreadListV2ListItem[] | null => {
+    if (projectSections === null) return null;
+    const result = buildThreadListV2ListItems({ items: [], pendingTasks });
+    for (const section of projectSections) {
+      result.push({
+        type: "v2-project-header",
+        key: `v2-project:${section.key}`,
+        projectKey: section.key,
+        title: section.title,
+        count: section.loadedCount + section.unloadedCount,
+        expanded: section.expanded,
+        disabled: !input.shelfPreferencesLoaded,
+      });
+      result.push(
+        ...buildThreadListV2ListItems({
+          items: section.items,
+          pendingTasks: [],
+          snoozeLabelNow: `${input.now.slice(0, 16)}:00.000Z`,
+          snoozeEnvironmentIds: input.snoozeEnvironmentIds,
+          queuedThreadKeys: input.queuedThreadKeys,
+        }),
+      );
+      const state =
+        section.needsOlderSettled && olderSettledShelf.loading
+          ? "loading"
+          : section.expanded && section.unloadedCount > 0 && olderSettledShelf.failed
+            ? "failed"
+            : undefined;
+      if (section.moreCount > 0 || state === "failed") {
+        result.push({
+          type: "v2-project-more",
+          key: `v2-project-more:${section.key}`,
+          projectKey: section.key,
+          moreCount: section.moreCount,
+          state,
+        });
+      }
+    }
+    return result;
+  }, [
+    projectSections,
+    pendingTasks,
+    input.shelfPreferencesLoaded,
+    input.now,
+    input.snoozeEnvironmentIds,
+    input.queuedThreadKeys,
+    olderSettledShelf.loading,
+    olderSettledShelf.failed,
+  ]);
+  const showMoreInProject = (projectKey: string) => {
+    if (olderSettledShelf.failed) {
+      olderSettledShelf.retry();
+      return;
+    }
+    setProjectShownCounts((current) =>
+      new Map(current).set(
+        projectKey,
+        (current.get(projectKey) ?? PROJECT_THREAD_PAGE_SIZE) + PROJECT_THREAD_PAGE_SIZE,
+      ),
+    );
+  };
+  return {
+    layout,
+    items: projectItems ?? items,
+    contentOnlyThreadKeys,
+    olderSettledShelf,
+    groupByProject: projectItems !== null,
+    showMoreInProject,
+  };
 }
 
 /** The list's scope per environment: its projects there, or every project. */

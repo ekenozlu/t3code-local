@@ -1,4 +1,5 @@
 import type { EnvironmentId } from "@t3tools/contracts";
+import type { SidebarThreadGrouping } from "@t3tools/contracts/settings";
 
 import type { AppBarMenuItem } from "../../components/ui/AppBar.types";
 
@@ -19,8 +20,30 @@ export function buildHomeListFilterMenuItems(props: {
   readonly selectedProjectKey: string | null;
   readonly onEnvironmentChange: (environmentId: EnvironmentId | null) => void;
   readonly onProjectChange: (projectKey: string | null) => void;
+  readonly grouping: SidebarThreadGrouping;
+  readonly onGroupingChange: (grouping: SidebarThreadGrouping) => void;
 }): AppBarMenuItem[] {
   const items: AppBarMenuItem[] = [
+    {
+      id: "grouping",
+      title: "Group threads",
+      items: [
+        {
+          id: "grouping:status",
+          title: "By status",
+          subtitle: "Pinned, Working, Snoozed and Settled",
+          selected: props.grouping === "status",
+          onPress: () => props.onGroupingChange("status"),
+        },
+        {
+          id: "grouping:project",
+          title: "By project",
+          subtitle: "Every thread under its project",
+          selected: props.grouping === "project",
+          onPress: () => props.onGroupingChange("project"),
+        },
+      ],
+    },
     {
       id: "environment",
       title: "Environment",

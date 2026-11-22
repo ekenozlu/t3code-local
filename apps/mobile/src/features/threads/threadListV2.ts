@@ -17,6 +17,12 @@ import {
 } from "@t3tools/client-runtime/state/thread-search";
 import { foldSearchQuery, rankSearchItems, scoreThreadSearch } from "@t3tools/shared/paletteSearch";
 import {
+  pageProjectThreads,
+  projectThreadsMoreCount,
+  projectThreadsWantedSettled,
+  sortThreadsByRecentActivity,
+} from "@t3tools/client-runtime/state/project-thread-paging";
+import {
   createInboxReturnTracker,
   isThreadWorking,
   sortInboxThreadsByReturn,
@@ -424,12 +430,33 @@ export interface ThreadListV2SettledShelfListItem {
   readonly disabled: boolean;
 }
 
+export interface ThreadListV2ProjectHeaderListItem {
+  readonly type: "v2-project-header";
+  readonly key: string;
+  readonly projectKey: string;
+  readonly title: string;
+  /** Every thread of the project, loaded or still on the server. */
+  readonly count: number;
+  readonly expanded: boolean;
+  readonly disabled: boolean;
+}
+
+export interface ThreadListV2ProjectMoreListItem {
+  readonly type: "v2-project-more";
+  readonly key: string;
+  readonly projectKey: string;
+  readonly moreCount: number;
+  readonly state: "loading" | "failed" | undefined;
+}
+
 export type ThreadListV2ListItem =
   | ThreadListV2ThreadListItem
   | ThreadListV2PendingListItem
   | ThreadListV2WorkingShelfListItem
   | ThreadListV2SnoozedShelfListItem
-  | ThreadListV2SettledShelfListItem;
+  | ThreadListV2SettledShelfListItem
+  | ThreadListV2ProjectHeaderListItem
+  | ThreadListV2ProjectMoreListItem;
 
 export function isThreadListV2ListItem(value: {
   readonly type: string;
@@ -439,7 +466,9 @@ export function isThreadListV2ListItem(value: {
     value.type === "v2-pending" ||
     value.type === "v2-working-shelf" ||
     value.type === "v2-snoozed-shelf" ||
-    value.type === "v2-settled-shelf"
+    value.type === "v2-settled-shelf" ||
+    value.type === "v2-project-header" ||
+    value.type === "v2-project-more"
   );
 }
 
@@ -494,6 +523,22 @@ export function threadListV2ListItemsAreEqual(
         previous.count === item.count &&
         previous.expanded === item.expanded &&
         previous.disabled === item.disabled
+      );
+    case "v2-project-header":
+      return (
+        previous.type === "v2-project-header" &&
+        previous.key === item.key &&
+        previous.title === item.title &&
+        previous.count === item.count &&
+        previous.expanded === item.expanded &&
+        previous.disabled === item.disabled
+      );
+    case "v2-project-more":
+      return (
+        previous.type === "v2-project-more" &&
+        previous.key === item.key &&
+        previous.moreCount === item.moreCount &&
+        previous.state === item.state
       );
   }
 }
@@ -920,4 +965,167 @@ export function buildThreadListV2Items(input: {
     nextSnoozeWakeAt,
     contentOnlyThreadKeys,
   };
+}
+
+export interface ThreadListV2ProjectSectionInput {
+  readonly key: string;
+  readonly title: string;
+  readonly projectRefs: ReadonlyArray<{
+    readonly environmentId: EnvironmentId;
+    readonly projectId: ProjectId;
+  }>;
+}
+
+export interface ThreadListV2ProjectSection {
+  readonly key: string;
+  readonly title: string;
+  readonly projectRefs: ThreadListV2ProjectSectionInput["projectRefs"];
+  readonly expanded: boolean;
+  /** The rows the section shows, in its section's look. */
+  readonly items: ThreadListV2Item[];
+  readonly loadedCount: number;
+  readonly unloadedCount: number;
+  readonly moreCount: number;
+  /** Older settled threads this section's "See more" still needs read from the server. */
+  readonly needsOlderSettled: boolean;
+  /** Its most recent thread's activity; sections are ordered by it. */
+  readonly latestActivityMs: number;
+}
+
+/**
+ * "By project": every listed thread under its project, most recent first, paged per section.
+ * Snoozed and settled rows keep their slim look. Sections with no threads, loaded or on the
+ * server, are left out; the rest are ordered by their most recent thread.
+ */
+export function buildThreadListV2ProjectSections(input: {
+  readonly threads: ReadonlyArray<EnvironmentThreadShell>;
+  readonly environmentId: EnvironmentId | null;
+  /** The project filter; sections outside it are left out. */
+  readonly projectRefs?: ThreadListV2ProjectSectionInput["projectRefs"] | null;
+  readonly sections: ReadonlyArray<ThreadListV2ProjectSectionInput>;
+  readonly settlementEnvironmentIds?: ReadonlySet<EnvironmentId>;
+  readonly snoozeEnvironmentIds?: ReadonlySet<EnvironmentId>;
+  readonly queuedThreadKeys?: ReadonlySet<string>;
+  readonly now: string;
+  readonly selectedThreadKey: string | null;
+  readonly collapsedKeys: ReadonlySet<string>;
+  readonly shownCounts: ReadonlyMap<string, number>;
+  readonly pageSize: number;
+  /** Older settled threads of these projects that the client does not hold. */
+  readonly unloadedCount: (
+    projectRefs: ThreadListV2ProjectSectionInput["projectRefs"],
+    loadedThreads: ReadonlyArray<EnvironmentThreadShell>,
+  ) => number;
+}): ThreadListV2ProjectSection[] {
+  const now = input.now;
+  const keyOf = (thread: EnvironmentThreadShell) => `${thread.environmentId}:${thread.id}`;
+  const filterKeys = input.projectRefs
+    ? new Set(input.projectRefs.map((ref) => `${ref.environmentId}:${ref.projectId}`))
+    : null;
+  const inScope = (section: ThreadListV2ProjectSectionInput) =>
+    filterKeys === null ||
+    section.projectRefs.some((ref) => filterKeys.has(`${ref.environmentId}:${ref.projectId}`));
+  const sectionKeyByProject = new Map<string, string>();
+  for (const section of input.sections) {
+    if (!inScope(section)) continue;
+    for (const ref of section.projectRefs) {
+      sectionKeyByProject.set(`${ref.environmentId}:${ref.projectId}`, section.key);
+    }
+  }
+  const threadsBySection = new Map<string, EnvironmentThreadShell[]>();
+  for (const thread of input.threads) {
+    if (thread.archivedAt !== null || !isListedThreadLineage(thread.lineage)) continue;
+    if (input.environmentId !== null && thread.environmentId !== input.environmentId) continue;
+    const sectionKey = sectionKeyByProject.get(`${thread.environmentId}:${thread.projectId}`);
+    if (sectionKey === undefined) continue;
+    const list = threadsBySection.get(sectionKey) ?? [];
+    list.push(thread);
+    threadsBySection.set(sectionKey, list);
+  }
+  const isSlim = (thread: EnvironmentThreadShell) => {
+    if (
+      (input.snoozeEnvironmentIds?.has(thread.environmentId) ?? true) &&
+      effectiveSnoozed(thread, { now })
+    ) {
+      return "snoozed" as const;
+    }
+    if (
+      (input.settlementEnvironmentIds?.has(thread.environmentId) ?? true) &&
+      thread.settledOverride === "settled" &&
+      input.queuedThreadKeys?.has(keyOf(thread)) !== true
+    ) {
+      return "settled" as const;
+    }
+    return null;
+  };
+
+  const sections = input.sections.flatMap((section): ThreadListV2ProjectSection[] => {
+    if (!inScope(section)) return [];
+    const loaded = sortThreadsByRecentActivity(threadsBySection.get(section.key) ?? []);
+    const unloadedCount = input.unloadedCount(section.projectRefs, loaded);
+    if (loaded.length === 0 && unloadedCount === 0) return [];
+    const expanded = !input.collapsedKeys.has(section.key);
+    const shownCount = input.shownCounts.get(section.key) ?? input.pageSize;
+    const shown = expanded
+      ? pageProjectThreads({
+          threads: loaded,
+          shownCount,
+          routeThreadKey: input.selectedThreadKey,
+          keyOf,
+        })
+      : loaded.filter((thread) => keyOf(thread) === input.selectedThreadKey);
+    const loadedSettledCount = loaded.filter((thread) => isSlim(thread) === "settled").length;
+    const items = shown.map((thread): ThreadListV2Item => {
+      const slim = isSlim(thread);
+      return {
+        thread,
+        variant: slim === null ? "card" : "slim",
+        snoozed: slim === "snoozed",
+        pinned: slim === null && thread.pinnedAt != null,
+        wokeAt: slim === null ? resolveThreadListV2WokeAt(thread, { now }) : null,
+        isLast: false,
+      };
+    });
+    const last = items.at(-1);
+    if (last) items[items.length - 1] = { ...last, isLast: true };
+    return [
+      {
+        key: section.key,
+        title: section.title,
+        projectRefs: section.projectRefs,
+        expanded,
+        items,
+        loadedCount: loaded.length,
+        unloadedCount,
+        moreCount: expanded
+          ? projectThreadsMoreCount({
+              loadedCount: loaded.length,
+              unloadedCount,
+              shownCount: shown.length,
+            })
+          : 0,
+        // Older pages are read per environment, newest first, so they load only once the user
+        // asks this section for more, never to fill every section's first page.
+        needsOlderSettled:
+          expanded &&
+          unloadedCount > 0 &&
+          input.shownCounts.has(section.key) &&
+          projectThreadsWantedSettled({
+            loadedCount: loaded.length,
+            loadedSettledCount,
+            shownCount,
+          }) > loadedSettledCount,
+        latestActivityMs:
+          loaded[0] === undefined
+            ? Number.NEGATIVE_INFINITY
+            : parseTimestampMs(resolveThreadActivityTimestamp(loaded[0]) ?? loaded[0].createdAt),
+      },
+    ];
+  });
+  return sections.sort(
+    (left, right) =>
+      right.latestActivityMs - left.latestActivityMs ||
+      left.title.localeCompare(right.title) ||
+      left.key.localeCompare(right.key),
+  );
 }

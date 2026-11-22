@@ -360,6 +360,67 @@ export const ThreadListV2ShowMoreRow = memo(function ThreadListV2ShowMoreRow(pro
   );
 });
 
+export const ThreadListV2ProjectHeader = memo(function ThreadListV2ProjectHeader(props: {
+  readonly projectKey: string;
+  readonly title: string;
+  readonly count: number;
+  readonly expanded: boolean;
+  readonly disabled?: boolean;
+  readonly onToggle: (projectKey: string) => void;
+  readonly pane?: "screen" | "sidebar";
+}) {
+  return (
+    <ThreadListV2Section
+      label={props.expanded ? props.title : `${props.title} (${props.count})`}
+      pane={props.pane}
+      disclosure={{
+        expanded: props.expanded,
+        disabled: props.disabled,
+        onToggle: () => props.onToggle(props.projectKey),
+        accessibilityLabel: `${props.title}, ${props.count} ${props.count === 1 ? "thread" : "threads"}`,
+        accessibilityHint: `${props.expanded ? "Collapses" : "Expands"} this project's threads.`,
+      }}
+    />
+  );
+});
+
+export const ThreadListV2ProjectMoreRow = memo(function ThreadListV2ProjectMoreRow(props: {
+  readonly projectKey: string;
+  readonly moreCount: number;
+  readonly state: "loading" | "failed" | undefined;
+  readonly onPress: (projectKey: string) => void;
+  readonly pane?: "screen" | "sidebar";
+}) {
+  const label =
+    props.state === "loading"
+      ? "Loading"
+      : props.state === "failed"
+        ? "Could not load older threads. Retry"
+        : `See more (${props.moreCount})`;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={
+        props.state === undefined ? `See ${props.moreCount} more threads in this project` : label
+      }
+      disabled={props.state === "loading"}
+      onPress={() => props.onPress(props.projectKey)}
+      className="mx-4 mt-2 items-center rounded-lg border border-dashed border-border py-2.5"
+      style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+    >
+      <Text
+        className={
+          props.pane === "sidebar"
+            ? "text-xs font-t3-medium text-drawer-foreground-muted"
+            : "text-xs font-t3-medium text-foreground-muted"
+        }
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+});
+
 const PENDING_TASK_MENU_ACTIONS: MenuAction[] = [
   { id: "delete", title: "Delete", image: "trash", attributes: { destructive: true } },
 ];

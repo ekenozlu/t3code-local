@@ -71,6 +71,8 @@ import type { PendingNewTask } from "../../state/use-pending-new-tasks";
 import { useQueuedThreadKeys } from "../../state/use-thread-outbox";
 import {
   ThreadListV2PendingRow,
+  ThreadListV2ProjectHeader,
+  ThreadListV2ProjectMoreRow,
   ThreadListV2Row,
   ThreadListV2SettledShelfHeader,
   ThreadListV2ShowMoreRow,
@@ -386,7 +388,12 @@ export function HomeScreen(props: HomeScreenProps) {
     toggleSettledShelf,
     toggleSnoozedShelf,
     toggleWorkingShelf,
+    groupByProject: groupByProjectPreference,
+    collapsedProjectKeys,
+    toggleProjectSection,
   } = useThreadListV2ShelfPreferences();
+  // The hook narrows sections to the project filter through `projectRefs`.
+  const projectSections = groupByProjectPreference ? projectScopes : null;
   const now = useThreadListNow(props.threads);
   const listEnvironments = useAtomValue(threadListEnvironmentsAtom);
   const {
@@ -408,6 +415,8 @@ export function HomeScreen(props: HomeScreenProps) {
     items: threadListV2Items,
     contentOnlyThreadKeys,
     olderSettledShelf,
+    groupByProject,
+    showMoreInProject,
   } = useThreadListV2({
     threads: props.threads,
     pendingTasks: props.pendingTasks,
@@ -429,6 +438,8 @@ export function HomeScreen(props: HomeScreenProps) {
     snoozedShelfExpanded,
     settledShelfExpanded,
     selectedThreadKey,
+    projectSections,
+    collapsedProjectKeys,
   });
   // Called as `props.onSelectThread(...)`, the compiler would cache this handler on the whole
   // props object, which is new on every render of Home's parent.
@@ -515,6 +526,28 @@ export function HomeScreen(props: HomeScreenProps) {
           disabled={item.disabled}
           expanded={item.expanded}
           onToggle={toggleSettledShelf}
+        />
+      );
+    }
+    if (item.type === "v2-project-header") {
+      return (
+        <ThreadListV2ProjectHeader
+          projectKey={item.projectKey}
+          title={item.title}
+          count={item.count}
+          expanded={item.expanded}
+          disabled={item.disabled}
+          onToggle={toggleProjectSection}
+        />
+      );
+    }
+    if (item.type === "v2-project-more") {
+      return (
+        <ThreadListV2ProjectMoreRow
+          projectKey={item.projectKey}
+          moreCount={item.moreCount}
+          state={item.state}
+          onPress={showMoreInProject}
         />
       );
     }
@@ -767,7 +800,9 @@ export function HomeScreen(props: HomeScreenProps) {
                 // Lifted above the rows so an iOS filter menu's dismissal morph is not covered.
                 ListHeaderComponentStyle={{ zIndex: 1 }}
                 ListFooterComponent={
-                  settledShelfExpanded && threadListV2Layout.hiddenSettledCount > 0 ? (
+                  !groupByProject &&
+                  settledShelfExpanded &&
+                  threadListV2Layout.hiddenSettledCount > 0 ? (
                     <ThreadListV2ShowMoreRow
                       hiddenCount={threadListV2Layout.hiddenSettledCount}
                       {...(olderSettledShelf.loading
