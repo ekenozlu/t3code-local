@@ -1,3 +1,4 @@
+import { Atom } from "effect/reactivity";
 import { createServerEnvironmentAtoms } from "@t3tools/client-runtime/state/server";
 import {
   createOutdatedServerDescriptionCommand,
@@ -24,3 +25,20 @@ export const environmentServerConfigsAtom = createEnvironmentServerConfigsAtom({
   catalogValueAtom: environmentCatalog.catalogValueAtom,
   serverConfigValueAtom: serverEnvironment.configValueAtom,
 });
+
+/**
+ * Command and Operation Center threads as `environmentId:threadId<TAB>center` lines. A string
+ * keeps lists from rebuilding on every settings push that leaves the centers alone.
+ */
+export const centerThreadKeyLinesAtom = Atom.make((get) => {
+  const lines: string[] = [];
+  for (const [environmentId, config] of get(environmentServerConfigsAtom)) {
+    for (const threadId of config.settings.commandCenter.threadIds) {
+      lines.push(`${environmentId}:${threadId}\tcommand`);
+    }
+    for (const threadId of config.settings.operationCenter.threadIds) {
+      lines.push(`${environmentId}:${threadId}\toperations`);
+    }
+  }
+  return lines.join("\n");
+}).pipe(Atom.withLabel("mobile-center-thread-keys"));

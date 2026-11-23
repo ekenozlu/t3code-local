@@ -10,12 +10,14 @@ import { scopedProjectKey } from "../../lib/scopedEntities";
 import { useOlderSettledShelf, useOlderSettledShelfGrowth } from "../../state/olderSettledShelf";
 import type { PendingNewTask } from "../../state/use-pending-new-tasks";
 import {
+  buildThreadListV2CenterSections,
   buildThreadListV2Items,
   buildThreadListV2ListItems,
   buildThreadListV2ProjectSections,
   type ThreadListV2ListItem,
   type ThreadListV2ProjectSectionInput,
   getThreadListV2OrderedSection,
+  type ThreadListV2Center,
   threadListInboxReturns,
   threadListV2LayoutTime,
 } from "./threadListV2";
@@ -75,9 +77,34 @@ export function useThreadListV2(input: {
   /** "By project" sections, or null for the status inbox. A search lists matches either way. */
   readonly projectSections: ReadonlyArray<ThreadListV2ProjectSectionInput> | null;
   readonly collapsedProjectKeys: ReadonlyArray<string>;
+  /** `centerThreadKeyLinesAtom`: Command and Operation Center threads, listed apart. */
+  readonly centerThreadKeyLines: string;
 }) {
-  const { threads, workingShelfEnabled } = input;
-  const groupByProject = input.projectSections !== null && input.searchQuery.trim().length === 0;
+  const { workingShelfEnabled } = input;
+  const searching = input.searchQuery.trim().length > 0;
+  const groupByProject = input.projectSections !== null && !searching;
+  const centerByThreadKey = useMemo(
+    () =>
+      new Map(
+        input.centerThreadKeyLines.length === 0
+          ? []
+          : input.centerThreadKeyLines.split("\n").map((line) => {
+              const [key = "", center] = line.split("\t");
+              return [key, center as ThreadListV2Center] as const;
+            }),
+      ),
+    [input.centerThreadKeyLines],
+  );
+  // A search lists center threads among its matches; otherwise they list in their own sections.
+  const threads = useMemo(
+    () =>
+      searching || centerByThreadKey.size === 0
+        ? input.threads
+        : input.threads.filter(
+            (thread) => !centerByThreadKey.has(`${thread.environmentId}:${thread.id}`),
+          ),
+    [searching, centerByThreadKey, input.threads],
+  );
   const [projectShownCounts, setProjectShownCounts] = useState<ReadonlyMap<string, number>>(
     () => new Map(),
   );
@@ -366,6 +393,66 @@ export function useThreadListV2(input: {
     olderSettledShelf.loading,
     olderSettledShelf.failed,
   ]);
+  const centerItems = useMemo((): ThreadListV2ListItem[] => {
+    if (searching) return [];
+    const sections = buildThreadListV2CenterSections({
+      threads: input.threads,
+      centerByThreadKey,
+      environmentId: input.environmentId,
+      projectRefs: input.projectRefs,
+      selectedThreadKey: input.selectedThreadKey,
+      collapsedKeys: new Set(input.collapsedProjectKeys),
+      now: layoutTime,
+      settlementEnvironmentIds: input.settlementEnvironmentIds,
+      snoozeEnvironmentIds: input.snoozeEnvironmentIds,
+      queuedThreadKeys: input.queuedThreadKeys,
+    });
+    return sections.flatMap((section): ThreadListV2ListItem[] => [
+      {
+        type: "v2-project-header",
+        key: `v2-project:${section.key}`,
+        projectKey: section.key,
+        title: section.title,
+        count: section.count,
+        expanded: section.expanded,
+        disabled: !input.shelfPreferencesLoaded,
+      },
+      ...buildThreadListV2ListItems({
+        items: section.items,
+        pendingTasks: [],
+        snoozeLabelNow: `${input.now.slice(0, 16)}:00.000Z`,
+        snoozeEnvironmentIds: input.snoozeEnvironmentIds,
+        queuedThreadKeys: input.queuedThreadKeys,
+      }),
+    ]);
+  }, [
+    searching,
+    input.threads,
+    centerByThreadKey,
+    input.environmentId,
+    input.projectRefs,
+    input.selectedThreadKey,
+    input.collapsedProjectKeys,
+    layoutTime,
+    input.settlementEnvironmentIds,
+    input.snoozeEnvironmentIds,
+    input.queuedThreadKeys,
+    input.shelfPreferencesLoaded,
+    input.now,
+  ]);
+  const listItems = projectItems ?? items;
+  const allItems = useMemo((): ThreadListV2ListItem[] => {
+    if (centerItems.length === 0) return listItems;
+    if (listItems.length === 0) return centerItems;
+    // Project sections carry their own headers; the inbox needs one to end the last center's.
+    return listItems[0]?.type === "v2-project-header"
+      ? [...centerItems, ...listItems]
+      : [
+          ...centerItems,
+          { type: "v2-label", key: "v2-label:threads", label: "Threads" },
+          ...listItems,
+        ];
+  }, [centerItems, listItems]);
   const showMoreInProject = (projectKey: string) => {
     if (olderSettledShelf.failed) {
       olderSettledShelf.retry();
@@ -380,7 +467,7 @@ export function useThreadListV2(input: {
   };
   return {
     layout,
-    items: projectItems ?? items,
+    items: allItems,
     contentOnlyThreadKeys,
     olderSettledShelf,
     groupByProject: projectItems !== null,

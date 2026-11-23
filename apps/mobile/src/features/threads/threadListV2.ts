@@ -449,7 +449,15 @@ export interface ThreadListV2ProjectMoreListItem {
   readonly state: "loading" | "failed" | undefined;
 }
 
+/** A plain section title, such as the one above the inbox when center sections precede it. */
+export interface ThreadListV2LabelListItem {
+  readonly type: "v2-label";
+  readonly key: string;
+  readonly label: string;
+}
+
 export type ThreadListV2ListItem =
+  | ThreadListV2LabelListItem
   | ThreadListV2ThreadListItem
   | ThreadListV2PendingListItem
   | ThreadListV2WorkingShelfListItem
@@ -468,7 +476,8 @@ export function isThreadListV2ListItem(value: {
     value.type === "v2-snoozed-shelf" ||
     value.type === "v2-settled-shelf" ||
     value.type === "v2-project-header" ||
-    value.type === "v2-project-more"
+    value.type === "v2-project-more" ||
+    value.type === "v2-label"
   );
 }
 
@@ -540,6 +549,8 @@ export function threadListV2ListItemsAreEqual(
         previous.moreCount === item.moreCount &&
         previous.state === item.state
       );
+    case "v2-label":
+      return previous.type === "v2-label" && previous.label === item.label;
   }
 }
 
@@ -1017,7 +1028,6 @@ export function buildThreadListV2ProjectSections(input: {
     loadedThreads: ReadonlyArray<EnvironmentThreadShell>,
   ) => number;
 }): ThreadListV2ProjectSection[] {
-  const now = input.now;
   const keyOf = (thread: EnvironmentThreadShell) => `${thread.environmentId}:${thread.id}`;
   const filterKeys = input.projectRefs
     ? new Set(input.projectRefs.map((ref) => `${ref.environmentId}:${ref.projectId}`))
@@ -1042,22 +1052,7 @@ export function buildThreadListV2ProjectSections(input: {
     list.push(thread);
     threadsBySection.set(sectionKey, list);
   }
-  const isSlim = (thread: EnvironmentThreadShell) => {
-    if (
-      (input.snoozeEnvironmentIds?.has(thread.environmentId) ?? true) &&
-      effectiveSnoozed(thread, { now })
-    ) {
-      return "snoozed" as const;
-    }
-    if (
-      (input.settlementEnvironmentIds?.has(thread.environmentId) ?? true) &&
-      thread.settledOverride === "settled" &&
-      input.queuedThreadKeys?.has(keyOf(thread)) !== true
-    ) {
-      return "settled" as const;
-    }
-    return null;
-  };
+  const isSlim = (thread: EnvironmentThreadShell) => slimKind(thread, input);
 
   const sections = input.sections.flatMap((section): ThreadListV2ProjectSection[] => {
     if (!inScope(section)) return [];
@@ -1075,19 +1070,7 @@ export function buildThreadListV2ProjectSections(input: {
         })
       : loaded.filter((thread) => keyOf(thread) === input.selectedThreadKey);
     const loadedSettledCount = loaded.filter((thread) => isSlim(thread) === "settled").length;
-    const items = shown.map((thread): ThreadListV2Item => {
-      const slim = isSlim(thread);
-      return {
-        thread,
-        variant: slim === null ? "card" : "slim",
-        snoozed: slim === "snoozed",
-        pinned: slim === null && thread.pinnedAt != null,
-        wokeAt: slim === null ? resolveThreadListV2WokeAt(thread, { now }) : null,
-        isLast: false,
-      };
-    });
-    const last = items.at(-1);
-    if (last) items[items.length - 1] = { ...last, isLast: true };
+    const items = sectionItems(shown, input);
     return [
       {
         key: section.key,
@@ -1128,4 +1111,115 @@ export function buildThreadListV2ProjectSections(input: {
       left.title.localeCompare(right.title) ||
       left.key.localeCompare(right.key),
   );
+}
+
+interface SlimKindInput {
+  readonly now: string;
+  readonly settlementEnvironmentIds?: ReadonlySet<EnvironmentId>;
+  readonly snoozeEnvironmentIds?: ReadonlySet<EnvironmentId>;
+  readonly queuedThreadKeys?: ReadonlySet<string>;
+}
+
+/** Snoozed and settled rows keep their slim look inside a section. */
+function slimKind(thread: EnvironmentThreadShell, input: SlimKindInput) {
+  if (
+    (input.snoozeEnvironmentIds?.has(thread.environmentId) ?? true) &&
+    effectiveSnoozed(thread, { now: input.now })
+  ) {
+    return "snoozed" as const;
+  }
+  if (
+    (input.settlementEnvironmentIds?.has(thread.environmentId) ?? true) &&
+    thread.settledOverride === "settled" &&
+    input.queuedThreadKeys?.has(`${thread.environmentId}:${thread.id}`) !== true
+  ) {
+    return "settled" as const;
+  }
+  return null;
+}
+
+function sectionItems(
+  threads: ReadonlyArray<EnvironmentThreadShell>,
+  input: SlimKindInput,
+): ThreadListV2Item[] {
+  const items = threads.map((thread): ThreadListV2Item => {
+    const slim = slimKind(thread, input);
+    return {
+      thread,
+      variant: slim === null ? "card" : "slim",
+      snoozed: slim === "snoozed",
+      pinned: slim === null && thread.pinnedAt != null,
+      wokeAt: slim === null ? resolveThreadListV2WokeAt(thread, { now: input.now }) : null,
+      isLast: false,
+    };
+  });
+  const last = items.at(-1);
+  if (last) items[items.length - 1] = { ...last, isLast: true };
+  return items;
+}
+
+export type ThreadListV2Center = "command" | "operations";
+
+export const THREAD_LIST_V2_CENTERS: ReadonlyArray<{
+  readonly center: ThreadListV2Center;
+  readonly key: string;
+  readonly title: string;
+}> = [
+  { center: "command", key: "center:command", title: "Command Center" },
+  { center: "operations", key: "center:operations", title: "Operation Center" },
+];
+
+export interface ThreadListV2CenterSection {
+  readonly key: string;
+  readonly title: string;
+  readonly count: number;
+  readonly expanded: boolean;
+  readonly items: ThreadListV2Item[];
+}
+
+/**
+ * Command and Operation Center threads, keyed `environmentId:threadId`, list in their own
+ * sections above the rest, as on desktop: open ones first, settled ones slim below them.
+ */
+export function buildThreadListV2CenterSections(
+  input: SlimKindInput & {
+    readonly threads: ReadonlyArray<EnvironmentThreadShell>;
+    readonly centerByThreadKey: ReadonlyMap<string, ThreadListV2Center>;
+    readonly environmentId: EnvironmentId | null;
+    readonly projectRefs?: ThreadListV2ProjectSectionInput["projectRefs"] | null;
+    readonly selectedThreadKey: string | null;
+    readonly collapsedKeys: ReadonlySet<string>;
+  },
+): ThreadListV2CenterSection[] {
+  if (input.centerByThreadKey.size === 0) return [];
+  const filterKeys = input.projectRefs
+    ? new Set(input.projectRefs.map((ref) => `${ref.environmentId}:${ref.projectId}`))
+    : null;
+  const byCenter = new Map<ThreadListV2Center, EnvironmentThreadShell[]>();
+  for (const thread of input.threads) {
+    const center = input.centerByThreadKey.get(`${thread.environmentId}:${thread.id}`);
+    if (center === undefined || thread.archivedAt !== null) continue;
+    if (input.environmentId !== null && thread.environmentId !== input.environmentId) continue;
+    if (filterKeys !== null && !filterKeys.has(`${thread.environmentId}:${thread.projectId}`)) {
+      continue;
+    }
+    const list = byCenter.get(center) ?? [];
+    list.push(thread);
+    byCenter.set(center, list);
+  }
+  return THREAD_LIST_V2_CENTERS.flatMap(({ center, key, title }) => {
+    const threads = sortThreadsByRecentActivity(byCenter.get(center) ?? []);
+    if (threads.length === 0) return [];
+    const expanded = !input.collapsedKeys.has(key);
+    const ordered = [
+      ...threads.filter((thread) => slimKind(thread, input) === null),
+      ...threads.filter((thread) => slimKind(thread, input) !== null),
+    ];
+    const shown = expanded
+      ? ordered
+      : ordered.filter(
+          (thread) => `${thread.environmentId}:${thread.id}` === input.selectedThreadKey,
+        );
+    return [{ key, title, count: threads.length, expanded, items: sectionItems(shown, input) }];
+  });
 }
