@@ -87,6 +87,12 @@ export function WorkspaceThreadSidebar() {
           threadId: String(thread.id),
         })
       }
+      onOpenThread={(ref) =>
+        selectThreadRoute({
+          environmentId: String(ref.environmentId),
+          threadId: String(ref.threadId),
+        })
+      }
       onOpenThreadPullRequests={openThreadPullRequests}
       onSearchQueryChange={setPrimarySidebarSearchQuery}
       searchQuery={primarySidebarSearchQuery}

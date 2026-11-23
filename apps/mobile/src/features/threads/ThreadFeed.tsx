@@ -1,3 +1,4 @@
+import { useAtomValue } from "@effect/atom-react";
 import { Button } from "../../components/ui/Button";
 import * as Dialog from "../../components/ui/Dialog";
 import { useOpenPullRequest } from "../../native/useOpenPullRequest";
@@ -250,7 +251,11 @@ import {
 import { useEnvironmentPresentation } from "../../state/presentation";
 import { useThreadSelection } from "../../state/use-thread-selection";
 import { useEnvironmentQuery } from "../../state/query";
-import { serverEnvironment } from "../../state/server";
+import {
+  centerThreadKeyLinesAtom,
+  serverEnvironment,
+  threadCenterFromKeyLines,
+} from "../../state/server";
 import { useModelMentions } from "../../state/model-mentions";
 import { composerDocumentAttachmentRecord } from "../../lib/composerContext";
 import * as Option from "effect/Option";
@@ -2688,7 +2693,29 @@ const THREAD_FEED_MAINTAIN_SCROLL_AT_END = {
   on: { dataChange: true, itemLayout: true, layout: true },
 } as const;
 
+const THREAD_FEED_EMPTY_COPY = {
+  thread: {
+    title: "No conversation yet",
+    detail: "Ask the agent to inspect the repo, run a command, or continue the active thread.",
+  },
+  command: {
+    title: "Command Center",
+    detail:
+      "Ask for work across your projects. It hands each job to one of your saved agents and reports back when it finishes.",
+  },
+  operations: {
+    title: "Operation Center",
+    detail:
+      "Ask it to review recent jobs. It recommends changes to your agents and applies only the ones you approve.",
+  },
+} as const;
+
 export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
+  const center = threadCenterFromKeyLines(
+    useAtomValue(centerThreadKeyLinesAtom),
+    props.environmentId,
+    props.threadId,
+  );
   const { listRef, onIsAtEndChange, onHeaderMaterialVisibilityChange } = props;
   const workflowOpening = useWorkflowOpening(props.detailRef);
   const guestShare = useThreadGuestShare(props.detailRef);
@@ -3843,8 +3870,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
             style={[StyleSheet.absoluteFill, { left: contentLeftInset, right: contentRightInset }]}
           >
             <ThreadFeedPlaceholder
-              title="No conversation yet"
-              detail="Ask the agent to inspect the repo, run a command, or continue the active thread."
+              {...THREAD_FEED_EMPTY_COPY[center ?? "thread"]}
               topInset={topContentInset}
               bottomInset={bottomContentInset}
               horizontalPadding={horizontalPadding}

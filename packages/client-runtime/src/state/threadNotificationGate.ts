@@ -1,3 +1,4 @@
+// @effect-diagnostics globalTimers:off - The gate runs in plain client listeners, outside an Effect runtime.
 export type ThreadNotificationKind = "input" | "completion";
 
 export interface ThreadNotificationObservation {

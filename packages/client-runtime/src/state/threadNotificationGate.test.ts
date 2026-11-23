@@ -4,7 +4,7 @@ import {
   createThreadNotificationGate,
   RELEASED_COMPLETION_GRACE_MS,
   type ThreadNotificationObservation,
-} from "./ThreadNotificationCoordinator.logic";
+} from "./threadNotificationGate.ts";
 
 const working: ThreadNotificationObservation = {
   attention: null,

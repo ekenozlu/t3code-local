@@ -1,3 +1,4 @@
+import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { useActiveNewTask } from "../../state/active-new-task";
 import { ThreadUndoNotice } from "../home/ThreadUndoNotice";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
@@ -32,6 +33,7 @@ import { useThreadListNow } from "./use-thread-list-now";
 import { usePendingThreadOrder } from "../../state/thread-order";
 import { threadListEnvironmentsAtom } from "../../state/presentation";
 import { centerThreadKeyLinesAtom } from "../../state/server";
+import { useStartCenterThread } from "./useStartCenterThread";
 import {
   useLaunchingThreads,
   usePendingNewTasks,
@@ -55,6 +57,7 @@ import { WorkspaceListHeader } from "../layout/workspace/WorkspaceListHeader";
 import { WorkspaceSidebarColumn } from "../layout/workspace/WorkspaceSidebarColumn";
 import {
   ThreadListV2PendingRow,
+  ThreadListV2CenterHeader,
   ThreadListV2Label,
   ThreadListV2ProjectHeader,
   ThreadListV2ProjectMoreRow,
@@ -97,6 +100,11 @@ interface ThreadNavigationSidebarProps {
   readonly onOpenPendingTask: (pendingTask: PendingNewTask) => void;
   readonly onSearchQueryChange: (query: string) => void;
   readonly onSelectThread: (thread: EnvironmentThreadShell) => void;
+  /** Opens a thread the list may not hold yet, such as a just-started center thread. */
+  readonly onOpenThread: (ref: {
+    readonly environmentId: EnvironmentId;
+    readonly threadId: ThreadId;
+  }) => void;
   readonly onOpenThreadPullRequests: (
     thread: EnvironmentThreadShell,
     pr: ThreadPrPresentation,
@@ -251,6 +259,10 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
   const now = useThreadListNow(threads);
   const listEnvironments = useAtomValue(threadListEnvironmentsAtom);
   const centerThreadKeyLines = useAtomValue(centerThreadKeyLinesAtom);
+  const centerThreads = useStartCenterThread({
+    environmentId: options.selectedEnvironmentId,
+    onOpenThread: props.onOpenThread,
+  });
   const {
     providersByEnvironmentId,
     machineByEnvironmentId,
@@ -296,6 +308,7 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
     projectSections,
     collapsedProjectKeys,
     centerThreadKeyLines,
+    showEmptyCenters: centerThreads.available,
   });
   const listItems: readonly SidebarListItem[] =
     !groupByProject && settledShelfExpanded && threadListV2Layout.hiddenSettledCount > 0
@@ -529,6 +542,21 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
             expanded={item.expanded}
             disabled={item.disabled}
             onToggle={toggleProjectSection}
+            pane="sidebar"
+          />
+        );
+      case "v2-center-header":
+        return (
+          <ThreadListV2CenterHeader
+            projectKey={item.projectKey}
+            center={item.center}
+            title={item.title}
+            count={item.count}
+            expanded={item.expanded}
+            disabled={item.disabled}
+            starting={centerThreads.starting === item.center}
+            onToggle={toggleProjectSection}
+            onStart={centerThreads.start}
             pane="sidebar"
           />
         );

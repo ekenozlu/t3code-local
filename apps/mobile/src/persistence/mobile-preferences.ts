@@ -94,6 +94,8 @@ export interface Preferences {
   readonly pullRequestHideTestFiles?: boolean;
   readonly pullRequestMergeMethod?: PullRequestMergeMethod;
   readonly liveActivitiesEnabled?: boolean;
+  /** Local notifications when a thread finishes or needs you. Unset means off. */
+  readonly threadResponseNotificationsEnabled?: boolean;
   readonly themeId?: MobileThemeId;
   readonly lightThemeId?: MobileThemeId;
   readonly darkThemeId?: MobileThemeId;
@@ -186,6 +188,7 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     pullRequestHideTestFiles?: boolean;
     pullRequestMergeMethod?: PullRequestMergeMethod;
     liveActivitiesEnabled?: boolean;
+    threadResponseNotificationsEnabled?: boolean;
     themeId?: MobileThemeId;
     lightThemeId?: MobileThemeId;
     darkThemeId?: MobileThemeId;
@@ -243,6 +246,9 @@ function sanitizePreferences(parsed: Preferences): Preferences {
 
   if (typeof parsed.liveActivitiesEnabled === "boolean") {
     preferences.liveActivitiesEnabled = parsed.liveActivitiesEnabled;
+  }
+  if (typeof parsed.threadResponseNotificationsEnabled === "boolean") {
+    preferences.threadResponseNotificationsEnabled = parsed.threadResponseNotificationsEnabled;
   }
   if (
     typeof parsed.themeId === "string" &&

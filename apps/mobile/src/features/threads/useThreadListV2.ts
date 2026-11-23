@@ -79,6 +79,8 @@ export function useThreadListV2(input: {
   readonly collapsedProjectKeys: ReadonlyArray<string>;
   /** `centerThreadKeyLinesAtom`: Command and Operation Center threads, listed apart. */
   readonly centerThreadKeyLines: string;
+  /** A connected server can start center threads, so empty centers list with their + button. */
+  readonly showEmptyCenters: boolean;
 }) {
   const { workingShelfEnabled } = input;
   const searching = input.searchQuery.trim().length > 0;
@@ -406,12 +408,14 @@ export function useThreadListV2(input: {
       settlementEnvironmentIds: input.settlementEnvironmentIds,
       snoozeEnvironmentIds: input.snoozeEnvironmentIds,
       queuedThreadKeys: input.queuedThreadKeys,
+      showEmpty: input.showEmptyCenters,
     });
     return sections.flatMap((section): ThreadListV2ListItem[] => [
       {
-        type: "v2-project-header",
-        key: `v2-project:${section.key}`,
+        type: "v2-center-header",
+        key: `v2-center:${section.key}`,
         projectKey: section.key,
+        center: section.center,
         title: section.title,
         count: section.count,
         expanded: section.expanded,
@@ -439,6 +443,7 @@ export function useThreadListV2(input: {
     input.queuedThreadKeys,
     input.shelfPreferencesLoaded,
     input.now,
+    input.showEmptyCenters,
   ]);
   const listItems = projectItems ?? items;
   const allItems = useMemo((): ThreadListV2ListItem[] => {

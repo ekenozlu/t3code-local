@@ -31,8 +31,8 @@ job and its status. When a job finishes, the main agent wakes up and reports bac
   to take it off the list; unarchive it to bring it back.
 - Each server has its own Command Center. It uses the agents saved on that server.
 - In the mobile app, Command Center and Operation Center threads list in their own sections at the
-  top of the thread list. Tap a section's title to fold it. A search lists them with the other
-  matches.
+  top of the thread list. Tap **+** beside a section's title to start another thread there, or the
+  title to fold it. A search lists them with the other matches.
 
 ## Operation Center
 

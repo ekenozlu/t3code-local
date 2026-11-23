@@ -449,6 +449,19 @@ export interface ThreadListV2ProjectMoreListItem {
   readonly state: "loading" | "failed" | undefined;
 }
 
+/** A Command or Operation Center section's title, with its new-thread button. */
+export interface ThreadListV2CenterHeaderListItem {
+  readonly type: "v2-center-header";
+  readonly key: string;
+  /** The collapse key, toggled like a project section's. */
+  readonly projectKey: string;
+  readonly center: ThreadListV2Center;
+  readonly title: string;
+  readonly count: number;
+  readonly expanded: boolean;
+  readonly disabled: boolean;
+}
+
 /** A plain section title, such as the one above the inbox when center sections precede it. */
 export interface ThreadListV2LabelListItem {
   readonly type: "v2-label";
@@ -464,6 +477,7 @@ export type ThreadListV2ListItem =
   | ThreadListV2SnoozedShelfListItem
   | ThreadListV2SettledShelfListItem
   | ThreadListV2ProjectHeaderListItem
+  | ThreadListV2CenterHeaderListItem
   | ThreadListV2ProjectMoreListItem;
 
 export function isThreadListV2ListItem(value: {
@@ -476,6 +490,7 @@ export function isThreadListV2ListItem(value: {
     value.type === "v2-snoozed-shelf" ||
     value.type === "v2-settled-shelf" ||
     value.type === "v2-project-header" ||
+    value.type === "v2-center-header" ||
     value.type === "v2-project-more" ||
     value.type === "v2-label"
   );
@@ -538,6 +553,14 @@ export function threadListV2ListItemsAreEqual(
         previous.type === "v2-project-header" &&
         previous.key === item.key &&
         previous.title === item.title &&
+        previous.count === item.count &&
+        previous.expanded === item.expanded &&
+        previous.disabled === item.disabled
+      );
+    case "v2-center-header":
+      return (
+        previous.type === "v2-center-header" &&
+        previous.key === item.key &&
         previous.count === item.count &&
         previous.expanded === item.expanded &&
         previous.disabled === item.disabled
@@ -1171,6 +1194,7 @@ export const THREAD_LIST_V2_CENTERS: ReadonlyArray<{
 
 export interface ThreadListV2CenterSection {
   readonly key: string;
+  readonly center: ThreadListV2Center;
   readonly title: string;
   readonly count: number;
   readonly expanded: boolean;
@@ -1189,9 +1213,13 @@ export function buildThreadListV2CenterSections(
     readonly projectRefs?: ThreadListV2ProjectSectionInput["projectRefs"] | null;
     readonly selectedThreadKey: string | null;
     readonly collapsedKeys: ReadonlySet<string>;
+    /** List a center with no threads yet, so its new-thread button stays reachable. */
+    readonly showEmpty: boolean;
   },
 ): ThreadListV2CenterSection[] {
-  if (input.centerByThreadKey.size === 0) return [];
+  // Center threads live in the Scratch project, so a project filter hides empty centers too.
+  const showEmpty = input.showEmpty && !input.projectRefs;
+  if (input.centerByThreadKey.size === 0 && !showEmpty) return [];
   const filterKeys = input.projectRefs
     ? new Set(input.projectRefs.map((ref) => `${ref.environmentId}:${ref.projectId}`))
     : null;
@@ -1209,7 +1237,9 @@ export function buildThreadListV2CenterSections(
   }
   return THREAD_LIST_V2_CENTERS.flatMap(({ center, key, title }) => {
     const threads = sortThreadsByRecentActivity(byCenter.get(center) ?? []);
-    if (threads.length === 0) return [];
+    if (threads.length === 0) {
+      return showEmpty ? [{ key, center, title, count: 0, expanded: true, items: [] }] : [];
+    }
     const expanded = !input.collapsedKeys.has(key);
     const ordered = [
       ...threads.filter((thread) => slimKind(thread, input) === null),
@@ -1220,6 +1250,8 @@ export function buildThreadListV2CenterSections(
       : ordered.filter(
           (thread) => `${thread.environmentId}:${thread.id}` === input.selectedThreadKey,
         );
-    return [{ key, title, count: threads.length, expanded, items: sectionItems(shown, input) }];
+    return [
+      { key, center, title, count: threads.length, expanded, items: sectionItems(shown, input) },
+    ];
   });
 }

@@ -1939,6 +1939,7 @@ describe("buildThreadListV2CenterSections", () => {
       now: NOW,
       selectedThreadKey: null,
       collapsedKeys: new Set(),
+      showEmpty: false,
       ...overrides,
     });
 
@@ -1966,6 +1967,20 @@ describe("buildThreadListV2CenterSections", () => {
     expect(build({ environmentId: EnvironmentId.make("elsewhere") })).toEqual([]);
     expect(
       build({ projectRefs: [{ environmentId, projectId: ProjectId.make("other-project") }] }),
+    ).toEqual([]);
+  });
+
+  it("keeps an empty center listed for its new-thread button, except under a project filter", () => {
+    const empty = build({ showEmpty: true, centerByThreadKey: new Map() });
+    expect(empty.map((section) => [section.center, section.count, section.items])).toEqual([
+      ["command", 0, []],
+      ["operations", 0, []],
+    ]);
+    expect(
+      build({
+        showEmpty: true,
+        projectRefs: [{ environmentId, projectId: ProjectId.make("other-project") }],
+      }),
     ).toEqual([]);
   });
 });

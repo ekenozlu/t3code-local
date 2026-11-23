@@ -6,7 +6,7 @@ import { Atom, AtomRegistry } from "effect/reactivity";
 import { expect, it, vi } from "vite-plus/test";
 
 import { fakeTimers, stubGlobal } from "../../test/render";
-import { RELEASED_COMPLETION_GRACE_MS } from "./ThreadNotificationCoordinator.logic";
+import { RELEASED_COMPLETION_GRACE_MS } from "@t3tools/client-runtime/state/thread-notification-gate";
 
 const state = vi.hoisted(() => ({
   mode: "notifications",

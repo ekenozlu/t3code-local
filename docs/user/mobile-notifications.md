@@ -1,5 +1,13 @@
 # Mobile notifications
 
+## Thread responses
+
+Turn on **Thread Responses** in **Settings → Notifications** to be notified when an agent replies, asks a question, or needs approval. T3 Code asks for notification permission the first time. Tap a notification to open its thread. The thread you have open stays quiet.
+
+These notifications come from the app's own connection to your environment, so they need no T3 Connect account. They arrive while the app is open or was just switched away from; once iOS or Android suspends the app, they stop until you open it again. For alerts while the app is closed, use T3 Connect below. When this device is registered with T3 Connect, its push notifications replace these so you don't get two.
+
+## T3 Connect
+
 Sign in to T3 Connect, link your environments, and enable **Device Notifications** in **Settings → Notifications** to receive alerts when an agent finishes, fails, needs approval, or asks for input. Tap a notification to open its thread. Your environment must have agent activity publishing enabled.
 
 Enable **Live Activity Updates** on iOS, **Agent Live Updates** on Android 16 and newer, or **Ongoing Agent Activity** on older Android versions to follow work without opening the app. Finished results remain visible for up to 15 minutes. You can dismiss an Android activity card without disabling alerts; turn off the same switch to stop future cards.
