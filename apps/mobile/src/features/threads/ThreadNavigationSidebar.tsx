@@ -31,6 +31,7 @@ import { useThreadListV2ShelfPreferences } from "./use-thread-list-v2-shelf-pref
 import { useThreadListNow } from "./use-thread-list-now";
 import { usePendingThreadOrder } from "../../state/thread-order";
 import { threadListEnvironmentsAtom } from "../../state/presentation";
+import { centerThreadKeyLinesAtom } from "../../state/server";
 import {
   useLaunchingThreads,
   usePendingNewTasks,
@@ -54,6 +55,7 @@ import { WorkspaceListHeader } from "../layout/workspace/WorkspaceListHeader";
 import { WorkspaceSidebarColumn } from "../layout/workspace/WorkspaceSidebarColumn";
 import {
   ThreadListV2PendingRow,
+  ThreadListV2Label,
   ThreadListV2ProjectHeader,
   ThreadListV2ProjectMoreRow,
   ThreadListV2Row,
@@ -248,6 +250,7 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
   const projectSections = groupByProjectPreference ? projectScopes : null;
   const now = useThreadListNow(threads);
   const listEnvironments = useAtomValue(threadListEnvironmentsAtom);
+  const centerThreadKeyLines = useAtomValue(centerThreadKeyLinesAtom);
   const {
     providersByEnvironmentId,
     machineByEnvironmentId,
@@ -292,6 +295,7 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
     selectedThreadKey: props.selectedThreadKey ?? null,
     projectSections,
     collapsedProjectKeys,
+    centerThreadKeyLines,
   });
   const listItems: readonly SidebarListItem[] =
     !groupByProject && settledShelfExpanded && threadListV2Layout.hiddenSettledCount > 0
@@ -528,6 +532,8 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
             pane="sidebar"
           />
         );
+      case "v2-label":
+        return <ThreadListV2Label label={item.label} pane="sidebar" />;
       case "v2-project-more":
         return (
           <ThreadListV2ProjectMoreRow

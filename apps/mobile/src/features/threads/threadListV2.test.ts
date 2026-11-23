@@ -33,6 +33,7 @@ import type { PendingNewTask } from "../../state/use-pending-new-tasks";
 import { makeRawThreadShell, makeThreadShellFixture } from "../../test-fixtures";
 import { threadJumpTarget } from "../keyboard/threadKeyboardShortcuts";
 import {
+  buildThreadListV2CenterSections,
   buildThreadListV2Items,
   buildThreadListV2ListItems,
   buildThreadListV2ProjectSections,
@@ -1900,5 +1901,71 @@ describe("buildThreadListV2ProjectSections", () => {
     // Only a section the user asked for more reads older pages.
     expect(withOlder[1]!.needsOlderSettled).toBe(true);
     expect(withOlder[2]).toMatchObject({ items: [], moreCount: 3, needsOlderSettled: false });
+  });
+});
+
+describe("buildThreadListV2CenterSections", () => {
+  const at = (day: number) => `2026-06-${String(day).padStart(2, "0")}T00:00:00.000Z`;
+  const threads = [
+    makeThread({ id: ThreadId.make("cc-old"), title: "CC old", latestUserMessageAt: at(10) }),
+    makeThread({
+      id: ThreadId.make("cc-settled"),
+      title: "CC settled",
+      latestUserMessageAt: at(20),
+      settledOverride: "settled",
+      settledAt: at(20),
+    }),
+    makeThread({ id: ThreadId.make("cc-new"), title: "CC new", latestUserMessageAt: at(15) }),
+    makeThread({ id: ThreadId.make("ops"), title: "Ops", latestUserMessageAt: at(12) }),
+    makeThread({
+      id: ThreadId.make("cc-archived"),
+      title: "CC archived",
+      archivedAt: at(11),
+    }),
+    makeThread({ id: ThreadId.make("plain"), title: "Plain" }),
+  ];
+  const centerByThreadKey = new Map([
+    [`${environmentId}:cc-old`, "command" as const],
+    [`${environmentId}:cc-settled`, "command" as const],
+    [`${environmentId}:cc-new`, "command" as const],
+    [`${environmentId}:cc-archived`, "command" as const],
+    [`${environmentId}:ops`, "operations" as const],
+  ]);
+  const build = (overrides: Partial<Parameters<typeof buildThreadListV2CenterSections>[0]>) =>
+    buildThreadListV2CenterSections({
+      threads,
+      centerByThreadKey,
+      environmentId: null,
+      now: NOW,
+      selectedThreadKey: null,
+      collapsedKeys: new Set(),
+      ...overrides,
+    });
+
+  it("lists each center's open threads newest first, then its settled ones slim", () => {
+    const sections = build({});
+    expect(sections.map((section) => [section.title, section.count])).toEqual([
+      ["Command Center", 3],
+      ["Operation Center", 1],
+    ]);
+    expect(sections[0]!.items.map((item) => [item.thread.id, item.variant, item.isLast])).toEqual([
+      ["cc-new", "card", false],
+      ["cc-old", "card", false],
+      ["cc-settled", "slim", true],
+    ]);
+  });
+
+  it("collapses to the open thread and follows the environment and project filters", () => {
+    const collapsed = build({
+      collapsedKeys: new Set(["center:command"]),
+      selectedThreadKey: `${environmentId}:cc-old`,
+    });
+    expect(collapsed[0]).toMatchObject({ expanded: false, count: 3 });
+    expect(collapsed[0]!.items.map((item) => item.thread.id)).toEqual(["cc-old"]);
+
+    expect(build({ environmentId: EnvironmentId.make("elsewhere") })).toEqual([]);
+    expect(
+      build({ projectRefs: [{ environmentId, projectId: ProjectId.make("other-project") }] }),
+    ).toEqual([]);
   });
 });

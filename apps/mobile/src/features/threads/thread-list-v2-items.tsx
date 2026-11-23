@@ -384,6 +384,13 @@ export const ThreadListV2ProjectHeader = memo(function ThreadListV2ProjectHeader
   );
 });
 
+export const ThreadListV2Label = memo(function ThreadListV2Label(props: {
+  readonly label: string;
+  readonly pane?: "screen" | "sidebar";
+}) {
+  return <ThreadListV2Section label={props.label} pane={props.pane} />;
+});
+
 export const ThreadListV2ProjectMoreRow = memo(function ThreadListV2ProjectMoreRow(props: {
   readonly projectKey: string;
   readonly moreCount: number;

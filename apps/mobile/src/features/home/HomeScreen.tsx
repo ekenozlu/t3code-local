@@ -67,9 +67,11 @@ import { useSearchScrollRestoration } from "../layout/workspace/useSearchScrollR
 import { useThreadJumpShortcuts } from "../keyboard/threadKeyboardShortcuts";
 import { usePendingThreadOrder } from "../../state/thread-order";
 import { threadListEnvironmentsAtom } from "../../state/presentation";
+import { centerThreadKeyLinesAtom } from "../../state/server";
 import type { PendingNewTask } from "../../state/use-pending-new-tasks";
 import { useQueuedThreadKeys } from "../../state/use-thread-outbox";
 import {
+  ThreadListV2Label,
   ThreadListV2PendingRow,
   ThreadListV2ProjectHeader,
   ThreadListV2ProjectMoreRow,
@@ -396,6 +398,7 @@ export function HomeScreen(props: HomeScreenProps) {
   const projectSections = groupByProjectPreference ? projectScopes : null;
   const now = useThreadListNow(props.threads);
   const listEnvironments = useAtomValue(threadListEnvironmentsAtom);
+  const centerThreadKeyLines = useAtomValue(centerThreadKeyLinesAtom);
   const {
     providersByEnvironmentId,
     machineByEnvironmentId,
@@ -440,6 +443,7 @@ export function HomeScreen(props: HomeScreenProps) {
     selectedThreadKey,
     projectSections,
     collapsedProjectKeys,
+    centerThreadKeyLines,
   });
   // Called as `props.onSelectThread(...)`, the compiler would cache this handler on the whole
   // props object, which is new on every render of Home's parent.
@@ -540,6 +544,9 @@ export function HomeScreen(props: HomeScreenProps) {
           onToggle={toggleProjectSection}
         />
       );
+    }
+    if (item.type === "v2-label") {
+      return <ThreadListV2Label label={item.label} />;
     }
     if (item.type === "v2-project-more") {
       return (
