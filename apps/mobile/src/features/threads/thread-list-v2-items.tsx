@@ -30,7 +30,7 @@ import type { SnoozePresetSetting } from "@t3tools/contracts/settings";
 import { canSnooze } from "@t3tools/client-runtime/state/thread-settled";
 import { threadChipCopyTarget } from "@t3tools/client-runtime/thread-reference";
 import type { MenuAction } from "@react-native-menu/menu";
-import { memo, useCallback, useMemo, useState, type ComponentProps } from "react";
+import { memo, useCallback, useMemo, useState, type ComponentProps, type ReactNode } from "react";
 import { Platform, Pressable, Text as RNText, useWindowDimensions, View } from "react-native";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 
@@ -78,6 +78,7 @@ import {
   resolveThreadListV2ProviderDrivers,
   resolveThreadListV2SwipeActions,
   layoutThreadListV2RowMenuActions,
+  type ThreadListV2Center,
   type ThreadListV2Status,
 } from "./threadListV2";
 import { QueuedMessageIcon } from "./queued-message-icon";
@@ -193,6 +194,9 @@ function ThreadListV2Section(props: {
   readonly label: string;
   readonly pane?: "screen" | "sidebar";
   readonly tone?: "default" | "snoozed";
+  readonly icon?: AppSymbolName;
+  /** Sits after the chevron, such as a section's new-thread button. */
+  readonly trailing?: ReactNode;
   readonly disclosure?: {
     readonly expanded: boolean;
     readonly disabled?: boolean;
@@ -209,6 +213,16 @@ function ThreadListV2Section(props: {
   );
   const content = (
     <>
+      {props.icon ? (
+        <SymbolView
+          name={props.icon}
+          size={12}
+          tintColorClassName={
+            sidebarPane ? "accent-drawer-foreground-muted" : "accent-foreground-tertiary"
+          }
+          type="monochrome"
+        />
+      ) : null}
       <Text
         className={cn(
           "text-xs font-t3-medium",
@@ -245,7 +259,7 @@ function ThreadListV2Section(props: {
     </>
   );
 
-  return props.disclosure ? (
+  const section = props.disclosure ? (
     <Pressable
       accessibilityHint={props.disclosure.accessibilityHint}
       accessibilityLabel={props.disclosure.accessibilityLabel}
@@ -254,7 +268,7 @@ function ThreadListV2Section(props: {
         disabled: props.disclosure.disabled,
         expanded: props.disclosure.expanded,
       }}
-      className={className}
+      className={props.trailing ? "flex-1 flex-row items-center gap-2.5" : className}
       disabled={props.disclosure.disabled}
       onPress={props.disclosure.onToggle}
       style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
@@ -262,7 +276,18 @@ function ThreadListV2Section(props: {
       {content}
     </Pressable>
   ) : (
-    <View className={className}>{content}</View>
+    <View className={props.trailing ? "flex-1 flex-row items-center gap-2.5" : className}>
+      {content}
+    </View>
+  );
+  // The trailing control sits beside the toggle, not inside it, so a press reaches only one.
+  return props.trailing ? (
+    <View className={className}>
+      {section}
+      {props.trailing}
+    </View>
+  ) : (
+    section
   );
 }
 
@@ -380,6 +405,69 @@ export const ThreadListV2ProjectHeader = memo(function ThreadListV2ProjectHeader
         accessibilityLabel: `${props.title}, ${props.count} ${props.count === 1 ? "thread" : "threads"}`,
         accessibilityHint: `${props.expanded ? "Collapses" : "Expands"} this project's threads.`,
       }}
+    />
+  );
+});
+
+const CENTER_SECTION_ICON = {
+  command: "bubble.left.and.bubble.right",
+  operations: "chart.bar.xaxis",
+} as const satisfies Record<ThreadListV2Center, AppSymbolName>;
+
+/**
+ * A Command or Operation Center section: folds like a project section once it has threads,
+ * and its + starts another main agent thread, as the desktop sidebar's does.
+ */
+export const ThreadListV2CenterHeader = memo(function ThreadListV2CenterHeader(props: {
+  readonly projectKey: string;
+  readonly center: ThreadListV2Center;
+  readonly title: string;
+  readonly count: number;
+  readonly expanded: boolean;
+  readonly disabled?: boolean;
+  readonly starting: boolean;
+  readonly onToggle: (projectKey: string) => void;
+  readonly onStart: (center: ThreadListV2Center) => void;
+  readonly pane?: "screen" | "sidebar";
+}) {
+  const sidebarPane = props.pane === "sidebar";
+  return (
+    <ThreadListV2Section
+      icon={CENTER_SECTION_ICON[props.center]}
+      label={props.expanded || props.count === 0 ? props.title : `${props.title} (${props.count})`}
+      pane={props.pane}
+      disclosure={
+        props.count === 0
+          ? undefined
+          : {
+              expanded: props.expanded,
+              disabled: props.disabled,
+              onToggle: () => props.onToggle(props.projectKey),
+              accessibilityLabel: `${props.title}, ${props.count} ${props.count === 1 ? "thread" : "threads"}`,
+              accessibilityHint: `${props.expanded ? "Collapses" : "Expands"} the ${props.title}'s threads.`,
+            }
+      }
+      trailing={
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`New ${props.title} thread`}
+          accessibilityState={{ disabled: props.starting, busy: props.starting }}
+          disabled={props.starting}
+          hitSlop={10}
+          onPress={() => props.onStart(props.center)}
+          className="size-6 items-center justify-center rounded-full"
+          style={({ pressed }) => ({ opacity: props.starting ? 0.4 : pressed ? 0.6 : 1 })}
+        >
+          <SymbolView
+            name="plus"
+            size={13}
+            tintColorClassName={
+              sidebarPane ? "accent-drawer-foreground-muted" : "accent-foreground-muted"
+            }
+            type="monochrome"
+          />
+        </Pressable>
+      }
     />
   );
 });

@@ -37,7 +37,7 @@ import {
   createThreadNotificationGate,
   type ThreadNotificationKind,
   type ThreadNotificationObservation,
-} from "./ThreadNotificationCoordinator.logic";
+} from "@t3tools/client-runtime/state/thread-notification-gate";
 import { toastManager } from "./ui/toast";
 
 interface NotificationState extends ThreadNotificationObservation {

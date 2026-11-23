@@ -207,6 +207,12 @@ export function HomeRouteScreen() {
           onOpenSettings={() => selectTab("settings")}
           onSearchQueryChange={setSearchQuery}
           onSelectThread={handleSelectThread}
+          onOpenThread={(ref) =>
+            selectThreadRoute({
+              environmentId: String(ref.environmentId),
+              threadId: String(ref.threadId),
+            })
+          }
           onSelectPendingTask={openPendingTask}
           onDeletePendingTask={confirmDeletePendingTask}
           onNewThreadOnBranch={handleNewThreadOnBranch}

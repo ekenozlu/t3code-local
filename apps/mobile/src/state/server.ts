@@ -42,3 +42,18 @@ export const centerThreadKeyLinesAtom = Atom.make((get) => {
   }
   return lines.join("\n");
 }).pipe(Atom.withLabel("mobile-center-thread-keys"));
+
+/** Which center a thread belongs to, read from `centerThreadKeyLinesAtom`'s lines. */
+export function threadCenterFromKeyLines(
+  lines: string,
+  environmentId: string,
+  threadId: string,
+): "command" | "operations" | null {
+  const prefix = `${environmentId}:${threadId}\t`;
+  for (const line of lines.split("\n")) {
+    if (!line.startsWith(prefix)) continue;
+    const center = line.slice(prefix.length);
+    if (center === "command" || center === "operations") return center;
+  }
+  return null;
+}

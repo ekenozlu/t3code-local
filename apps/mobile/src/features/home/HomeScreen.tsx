@@ -14,7 +14,11 @@ import {
 } from "@t3tools/client-runtime/state/shell";
 import { pickableProjectGroups } from "@t3tools/client-runtime/state/project-grouping";
 import { threadSearchMatchKey } from "@t3tools/client-runtime/state/thread-search";
-import { type EnvironmentId, type SidebarProjectGroupingMode } from "@t3tools/contracts";
+import {
+  type EnvironmentId,
+  type SidebarProjectGroupingMode,
+  type ThreadId,
+} from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import {
   use,
@@ -68,9 +72,11 @@ import { useThreadJumpShortcuts } from "../keyboard/threadKeyboardShortcuts";
 import { usePendingThreadOrder } from "../../state/thread-order";
 import { threadListEnvironmentsAtom } from "../../state/presentation";
 import { centerThreadKeyLinesAtom } from "../../state/server";
+import { useStartCenterThread } from "../threads/useStartCenterThread";
 import type { PendingNewTask } from "../../state/use-pending-new-tasks";
 import { useQueuedThreadKeys } from "../../state/use-thread-outbox";
 import {
+  ThreadListV2CenterHeader,
   ThreadListV2Label,
   ThreadListV2PendingRow,
   ThreadListV2ProjectHeader,
@@ -128,6 +134,11 @@ interface HomeScreenProps {
   readonly onOpenSettings: () => void;
   readonly onStartNewTask: () => void;
   readonly onSelectThread: (thread: EnvironmentThreadShell) => void;
+  /** Opens a thread the list may not hold yet, such as a just-started center thread. */
+  readonly onOpenThread: (ref: {
+    readonly environmentId: EnvironmentId;
+    readonly threadId: ThreadId;
+  }) => void;
   readonly onArchiveThread: (thread: EnvironmentThreadShell) => void;
   readonly onDeleteThread: (thread: EnvironmentThreadShell) => void;
   readonly onSettleThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
@@ -399,6 +410,10 @@ export function HomeScreen(props: HomeScreenProps) {
   const now = useThreadListNow(props.threads);
   const listEnvironments = useAtomValue(threadListEnvironmentsAtom);
   const centerThreadKeyLines = useAtomValue(centerThreadKeyLinesAtom);
+  const centerThreads = useStartCenterThread({
+    environmentId: props.selectedEnvironmentId,
+    onOpenThread: props.onOpenThread,
+  });
   const {
     providersByEnvironmentId,
     machineByEnvironmentId,
@@ -444,6 +459,7 @@ export function HomeScreen(props: HomeScreenProps) {
     projectSections,
     collapsedProjectKeys,
     centerThreadKeyLines,
+    showEmptyCenters: centerThreads.available,
   });
   // Called as `props.onSelectThread(...)`, the compiler would cache this handler on the whole
   // props object, which is new on every render of Home's parent.
@@ -542,6 +558,21 @@ export function HomeScreen(props: HomeScreenProps) {
           expanded={item.expanded}
           disabled={item.disabled}
           onToggle={toggleProjectSection}
+        />
+      );
+    }
+    if (item.type === "v2-center-header") {
+      return (
+        <ThreadListV2CenterHeader
+          projectKey={item.projectKey}
+          center={item.center}
+          title={item.title}
+          count={item.count}
+          expanded={item.expanded}
+          disabled={item.disabled}
+          starting={centerThreads.starting === item.center}
+          onToggle={toggleProjectSection}
+          onStart={centerThreads.start}
         />
       );
     }

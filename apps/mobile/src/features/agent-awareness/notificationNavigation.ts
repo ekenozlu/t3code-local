@@ -4,6 +4,7 @@ import { setAndroidThreadOnScreen } from "./androidNotifications";
 import { foregroundNotificationBehavior } from "./foregroundNotificationBehavior";
 import { routeAgentNotificationResponseOnce, threadDeepLinkOnScreen } from "./notificationPayload";
 import { consumeLastAgentNotificationResponse } from "./notificationResponseConsumer";
+import { setThreadResponseNotificationScreen } from "./threadResponseNotifications";
 
 let deepLinkOnScreen: string | null = null;
 
@@ -11,6 +12,7 @@ let deepLinkOnScreen: string | null = null;
 export function setAgentNotificationPathname(pathname: string): void {
   deepLinkOnScreen = threadDeepLinkOnScreen(pathname);
   setAndroidThreadOnScreen(deepLinkOnScreen);
+  setThreadResponseNotificationScreen(deepLinkOnScreen);
 }
 
 /**

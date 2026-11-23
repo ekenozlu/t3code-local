@@ -6,6 +6,7 @@ import { consumeLastAgentNotificationResponse } from "./notificationResponseCons
 import {
   extractAgentNotificationDeepLink,
   routeAgentNotificationResponseOnce,
+  threadDeepLinkOnScreen,
 } from "./notificationPayload";
 
 function responseWithData(data: Record<string, unknown>, identifier = "notification-1") {
@@ -101,6 +102,17 @@ describe("extractAgentNotificationDeepLink", () => {
       extractAgentNotificationDeepLink(responseWithData({ deepLink: "/threads/env/thread?x=1" })),
     ).toBeNull();
     expect(extractAgentNotificationDeepLink({})).toBeNull();
+  });
+});
+
+describe("threadDeepLinkOnScreen", () => {
+  it("matches a notification's deep link for a thread id the route keeps unencoded", () => {
+    const notificationLink = extractAgentNotificationDeepLink(
+      responseWithData({ environmentId: "env-1", threadId: "mcp:thread-1" }),
+    );
+    expect(threadDeepLinkOnScreen("/threads/env-1/mcp:thread-1/files")).toBe(notificationLink);
+    expect(threadDeepLinkOnScreen("/threads/env-1/mcp%3Athread-1")).toBe(notificationLink);
+    expect(threadDeepLinkOnScreen("/settings")).toBeNull();
   });
 });
 

@@ -109,15 +109,21 @@ function useDeviceRegistered(): boolean {
 }
 
 export function SettingsNotificationsRouteScreen() {
+  const insets = useSafeAreaInsets();
   if (!hasCloudPublicConfig()) {
     return (
       <SettingsScreen title="Notifications">
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
-          contentContainerClassName="px-5 pt-4"
+          showsVerticalScrollIndicator={false}
+          className="flex-1"
+          contentContainerClassName="gap-6 px-5 pt-4"
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 18) + 18 }}
         >
-          <Text className="text-base text-foreground-muted">
-            Notifications require T3 Connect in this app build.
+          <ThreadResponseNotificationsSection />
+          <Text className="px-1 text-sm text-foreground-muted">
+            Live Activities and notifications while the app is closed need T3 Connect, which this
+            app build does not include.
           </Text>
         </ScrollView>
       </SettingsScreen>
@@ -125,6 +131,84 @@ export function SettingsNotificationsRouteScreen() {
   }
 
   return <ConfiguredSettingsNotificationsRouteScreen />;
+}
+
+/**
+ * Local notifications this device posts itself when a thread replies or needs you. They need no
+ * T3 Connect account, but only arrive while the app is running or just backgrounded.
+ */
+function ThreadResponseNotificationsSection() {
+  const preferencesResult = useAtomValue(mobilePreferencesAtom);
+  const savePreferences = useAtomSet(updateMobilePreferencesAtom);
+  const notificationStatus = useAtomValue(notificationStatusAtom);
+  const setNotificationStatus = useAtomSet(notificationStatusAtom);
+  const [requesting, setRequesting] = useState(false);
+  const preferenceEnabled =
+    AsyncResult.isSuccess(preferencesResult) &&
+    preferencesResult.value.threadResponseNotificationsEnabled === true;
+  const blockedBySystem = preferenceEnabled && notificationStatus === "disabled";
+
+  const enable = async () => {
+    setRequesting(true);
+    const permission = await settleAsyncResult(() =>
+      runtime.runPromiseExit(requestAgentNotificationPermission),
+    );
+    setRequesting(false);
+    if (permission._tag === "Failure") {
+      if (isAtomCommandInterrupted(permission)) return;
+      const error = squashAtomCommandFailure(permission);
+      Dialog.alert(
+        "Notifications unavailable",
+        error instanceof Error ? error.message : "Could not request notification permission.",
+      );
+      return;
+    }
+    if (permission.value.type === "granted") {
+      setNotificationStatus("enabled");
+      savePreferences({ threadResponseNotificationsEnabled: true });
+      return;
+    }
+    if (permission.value.type === "unsupported") {
+      setNotificationStatus("unsupported");
+      Dialog.alert("Notifications unavailable", "Notifications are unavailable on this platform.");
+      return;
+    }
+    setNotificationStatus("disabled");
+    if (permission.value.canAskAgain) return;
+    Dialog.alert(
+      "Notifications are off",
+      "Notifications were denied for T3 Code. Open Settings to allow them.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Open Settings", onPress: () => void Linking.openSettings() },
+      ],
+    );
+  };
+
+  return (
+    <SettingsSection title="Threads">
+      <SettingsSwitchRow
+        icon="bubble.left.and.bubble.right"
+        label="Thread Responses"
+        subtitle={
+          blockedBySystem
+            ? "Allow notifications for T3 Code in system Settings"
+            : "When an agent replies, asks a question, or needs approval"
+        }
+        disabled={
+          requesting || notificationStatus === "checking" || notificationStatus === "unsupported"
+        }
+        value={preferenceEnabled && notificationStatus === "enabled"}
+        onValueChange={(next) => {
+          if (next) {
+            void enable();
+            return;
+          }
+          savePreferences({ threadResponseNotificationsEnabled: false });
+        }}
+      />
+    </SettingsSection>
+  );
 }
 
 function ConfiguredSettingsNotificationsRouteScreen() {
@@ -422,6 +506,7 @@ function ConfiguredSettingsNotificationsRouteScreen() {
           paddingBottom: Math.max(insets.bottom, 18) + 18,
         }}
       >
+        <ThreadResponseNotificationsSection />
         <SettingsSection title="Agent activity">
           <SettingsSwitchRow
             icon="bell.badge"

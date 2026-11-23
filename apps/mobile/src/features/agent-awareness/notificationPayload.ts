@@ -34,7 +34,7 @@ function identifierFromNotificationResponse(response: unknown): string | null {
   return typeof identifier === "string" ? identifier : null;
 }
 
-function encodeThreadDeepLink(input: {
+export function encodeThreadDeepLink(input: {
   readonly environmentId: string;
   readonly threadId: string;
 }): string | null {
@@ -78,7 +78,8 @@ export function threadDeepLinkOnScreen(pathname: string): string | null {
   if (!match?.[1] || !match[2]) {
     return null;
   }
-  return `/threads/${match[1]}/${match[2]}`;
+  // Routes may keep ids such as `mcp:…` unencoded; notification links always encode them.
+  return normalizeThreadDeepLink(`/threads/${match[1]}/${match[2]}`);
 }
 
 export function extractAgentNotificationDeepLink(response: unknown): string | null {
